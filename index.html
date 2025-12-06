@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>مدير المصروفات - التصميم الجديد</title>
+    <title>مدير المصروفات - متعدد الحسابات</title>
     
     <!-- React & ReactDOM -->
     <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
@@ -81,7 +81,7 @@
           measurementId: "G-0Y5EXZ7PR9"
         };
 
-        const ADMIN_PIN_CODE = "1234";
+        const ADMIN_PIN_CODE = "97698"; 
 
         // ====================================================================
 
@@ -143,7 +143,7 @@
             Folder: (p) => <Icon d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" {...p} />,
             Cloud: (p) => <Icon d="M18 10h-1.26A8 8 0 109 20h9a5 5 0 000-10z" {...p} />,
             Logout: (p) => <Icon d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4m7 14l5-5-5-5m5 5H9" {...p} />,
-            Printer: (p) => <Icon d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a1 1 0 11-2 0 1 1 0 012 0z" {...p} />, // Added Printer Icon
+            Printer: (p) => <Icon d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a1 1 0 11-2 0 1 1 0 012 0z" {...p} />, 
             File: (p) => <Icon d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" {...p} />,
             Check: (p) => <Icon d="M20 6L9 17l-5-5" {...p} />,
             X: (p) => <Icon d="M18 6L6 18M6 6l12 12" {...p} />,
@@ -157,10 +157,15 @@
             const [users, setUsers] = useState([]);
             const [loading, setLoading] = useState(true);
             const [view, setView] = useState('list');
-            const [formData, setFormData] = useState({ name: '', color: 'bg-indigo-500' });
+            const [formData, setFormData] = useState({ name: '' });
             const [selectedUser, setSelectedUser] = useState(null);
             const [adminPin, setAdminPin] = useState('');
             const [error, setError] = useState('');
+            
+            const [myDeviceUserIds, setMyDeviceUserIds] = useState(() => {
+                const saved = localStorage.getItem('my_device_users');
+                return saved ? JSON.parse(saved) : [];
+            });
 
             const { db, appId } = storage;
 
@@ -168,42 +173,77 @@
                 if (db) {
                     const usersRef = db.collection('artifacts').doc(appId).collection('public_data_users');
                     const unsub = usersRef.onSnapshot((snapshot) => {
-                        setUsers(snapshot.docs.map(d => d.data()));
+                        const allCloudUsers = snapshot.docs.map(d => d.data());
+                        const myUsers = allCloudUsers.filter(u => myDeviceUserIds.includes(u.id));
+                        setUsers(myUsers);
                         setLoading(false);
+                        
+                        if (myUsers.length === 0 && view === 'list') {
+                            setView('add');
+                        }
                     }, (err) => {
                         console.error("Firebase Error:", err);
                         setLoading(false);
                     });
                     return () => unsub();
                 }
-            }, [db, appId]);
+            }, [db, appId, myDeviceUserIds]);
 
             const handleCreateUser = async () => {
-                if (!formData.name) return setError('الاسم مطلوب');
+                if (!formData.name) return setError('يرجى إدخال اسم الحساب الرئيسي');
                 setLoading(true);
-                const newUser = { id: generateID(), name: formData.name, color: formData.color, createdAt: new Date().toISOString() };
+                const newId = generateID();
+                const newUser = { id: newId, name: formData.name, color: 'bg-indigo-600', createdAt: new Date().toISOString() };
+                
                 try {
                     await db.collection('artifacts').doc(appId).collection('public_data_users').doc(newUser.id).set(newUser);
-                    setFormData({ name: '', color: 'bg-indigo-500' }); setView('list');
+                    const updatedMyIds = [...myDeviceUserIds, newId];
+                    setMyDeviceUserIds(updatedMyIds);
+                    localStorage.setItem('my_device_users', JSON.stringify(updatedMyIds));
+
+                    setFormData({ name: '' }); 
+                    setView('list');
                 } catch(e) { setError('حدث خطأ أثناء الحفظ بالسيرفر'); } 
                 finally { setLoading(false); }
             };
 
             const handleEditUser = async () => {
-                if (!formData.name) return setError('الاسم مطلوب');
+                if (!formData.name) return setError('يرجى إدخال اسم الحساب الرئيسي');
                 setLoading(true);
                 try {
-                    const updatedUser = { ...selectedUser, name: formData.name, color: formData.color };
+                    const updatedUser = { ...selectedUser, name: formData.name };
                     await db.collection('artifacts').doc(appId).collection('public_data_users').doc(updatedUser.id).update(updatedUser);
-                    setFormData({ name: '', color: 'bg-indigo-500' }); setSelectedUser(null); setView('list');
+                    setFormData({ name: '' }); setSelectedUser(null); setView('list');
                 } catch(e) { setError('حدث خطأ أثناء التحديث'); } 
                 finally { setLoading(false); }
+            };
+
+            const handleDeleteUser = async () => {
+                if (!selectedUser) return;
+                if (window.confirm(`هل أنت متأكد من حذف الحساب الرئيسي "${selectedUser.name}"؟ سيتم حذف جميع الملفات بداخله.`)) {
+                    setLoading(true);
+                    try {
+                        await db.collection('artifacts').doc(appId).collection('public_data_users').doc(selectedUser.id).delete();
+                        const updatedMyIds = myDeviceUserIds.filter(id => id !== selectedUser.id);
+                        setMyDeviceUserIds(updatedMyIds);
+                        localStorage.setItem('my_device_users', JSON.stringify(updatedMyIds));
+
+                        const sheetsSnapshot = await db.collection('artifacts').doc(appId).collection('public_data_sheets').get();
+                        const batch = db.batch();
+                        sheetsSnapshot.forEach(doc => { if (doc.data().userId === selectedUser.id) batch.delete(doc.ref); });
+                        await batch.commit();
+
+                        setSelectedUser(null);
+                        setFormData({ name: '' });
+                        setView('list');
+                    } catch (e) { setError('حدث خطأ'); } finally { setLoading(false); }
+                }
             };
 
             const openEditView = (user, e) => {
                 e.stopPropagation();
                 setSelectedUser(user);
-                setFormData({ name: user.name, color: user.color });
+                setFormData({ name: user.name });
                 setView('edit');
                 setError('');
             };
@@ -220,7 +260,6 @@
                 <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-blue-50 to-purple-50 flex flex-col items-center justify-center p-4" dir="rtl">
                     <div className="glass p-10 rounded-[2.5rem] shadow-2xl w-full max-w-4xl relative overflow-hidden transition-all hover:shadow-indigo-200/50">
                         
-                        {/* Hidden Admin Button */}
                         {view === 'list' && <button onClick={() => { setView('admin'); setError(''); }} className="absolute top-0 left-0 w-24 h-24 z-50 opacity-0 cursor-default"></button>}
 
                         <div className="text-center mb-12 mt-2">
@@ -231,63 +270,57 @@
                         {view === 'list' && (
                             <div>
                                 <div className="flex justify-between items-end mb-8 border-b pb-4 border-gray-100">
-                                    <h2 className="text-2xl font-bold text-gray-700">الملف الشخصي</h2>
-                                    {users.length === 0 && (
-                                        <button onClick={() => { setFormData({ name: '', color: 'bg-indigo-500' }); setView('add'); }} className="bg-gradient-to-r from-indigo-500 to-blue-500 text-white px-6 py-2.5 rounded-full flex items-center gap-2 hover:shadow-lg hover:scale-105 transition transform">
-                                            <Icons.Plus className="h-5 w-5"/> إنشاء حساب جديد
-                                        </button>
-                                    )}
+                                    <h2 className="text-2xl font-bold text-gray-700">الحسابات</h2>
+                                    <button onClick={() => { setFormData({ name: '' }); setView('add'); }} className="bg-indigo-600 text-white px-4 py-2 rounded-xl flex items-center gap-2 hover:bg-indigo-700 transition text-sm font-bold shadow-md">
+                                        <Icons.Plus className="h-4 w-4"/> حساب جديد
+                                    </button>
                                 </div>
-                                {users.length === 0 ? (
-                                    <div className="text-center py-16 bg-white/50 rounded-3xl border-2 border-dashed border-gray-200">
-                                        <div className="bg-indigo-50 w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-4">
-                                            <Icons.User className="h-10 w-10 text-indigo-300" />
-                                        </div>
-                                        <p className="text-gray-400 mb-6 text-lg">لا يوجد حساب مسجل حالياً</p>
-                                        <button onClick={() => { setFormData({ name: '', color: 'bg-indigo-500' }); setView('add'); }} className="bg-indigo-600 text-white px-8 py-3 rounded-2xl font-bold hover:bg-indigo-700 shadow-xl shadow-indigo-200 transition-all">
-                                            ابدأ الآن
-                                        </button>
-                                    </div>
-                                ) : (
-                                    <div className="flex justify-center">
-                                        {users.map(u => (
-                                            <div key={u.id} onClick={() => onLogin(u)} className="bg-white p-8 rounded-[2rem] cursor-pointer shadow-lg hover:shadow-2xl border border-gray-100 transition-all group text-center relative w-full max-w-sm transform hover:-translate-y-2">
-                                                <button onClick={(e) => openEditView(u, e)} className="absolute top-4 left-4 p-2.5 bg-gray-50 hover:bg-indigo-100 text-gray-400 hover:text-indigo-600 rounded-full transition-colors z-20 shadow-sm">
-                                                    <Icons.Pencil className="h-4 w-4" />
-                                                </button>
-                                                <div className={`w-28 h-28 mx-auto ${u.color} rounded-full flex items-center justify-center text-white text-5xl font-bold mb-6 shadow-xl ring-8 ring-gray-50 group-hover:scale-110 transition-transform duration-300`}>
-                                                    {u.name[0]}
-                                                </div>
-                                                <h3 className="font-bold text-2xl text-gray-800 mb-3">{u.name}</h3>
-                                                <div className="inline-flex items-center gap-2 bg-green-50 text-green-600 px-4 py-1.5 rounded-full text-sm font-semibold border border-green-100">
-                                                    <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div> دخول مباشر
-                                                </div>
+                                
+                                <div className="flex justify-center flex-wrap gap-6">
+                                    {users.map(u => (
+                                        <div key={u.id} onClick={() => onLogin(u)} className="bg-white p-8 rounded-[2rem] cursor-pointer shadow-lg hover:shadow-2xl border border-gray-100 transition-all group text-center relative w-full sm:w-64 transform hover:-translate-y-2">
+                                            <button onClick={(e) => openEditView(u, e)} className="absolute top-4 left-4 p-2.5 bg-gray-50 hover:bg-indigo-100 text-gray-400 hover:text-indigo-600 rounded-full transition-colors z-20 shadow-sm">
+                                                <Icons.Pencil className="h-4 w-4" />
+                                            </button>
+                                            <div className={`w-24 h-24 mx-auto ${u.color || 'bg-indigo-600'} rounded-full flex items-center justify-center text-white text-4xl font-bold mb-6 shadow-xl ring-8 ring-gray-50 group-hover:scale-110 transition-transform duration-300`}>
+                                                {u.name[0]}
                                             </div>
-                                        ))}
-                                    </div>
-                                )}
+                                            <h3 className="font-bold text-xl text-gray-800 mb-3 truncate">{u.name}</h3>
+                                            <div className="inline-flex items-center gap-2 bg-green-50 text-green-600 px-4 py-1.5 rounded-full text-xs font-semibold border border-green-100">
+                                                <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div> دخول مباشر
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
                             </div>
                         )}
 
                         {(view === 'add' || view === 'edit') && (
                             <div className="max-w-md mx-auto py-4">
-                                <h2 className="text-2xl font-bold mb-8 text-center text-gray-800">{view === 'add' ? 'إعداد الحساب الجديد' : 'تعديل الحساب'}</h2>
+                                <h2 className="text-2xl font-bold mb-8 text-center text-gray-800">
+                                    {view === 'add' ? (users.length === 0 ? 'إعداد الحساب الرئيسي' : 'إعداد الحساب الجديد') : 'تعديل الحساب الرئيسي'}
+                                </h2>
                                 <div className="space-y-6">
                                     <div>
-                                        <label className="block text-sm font-medium text-gray-600 mb-2">الاسم</label>
-                                        <input type="text" placeholder="مثلاً: محمد أحمد" className="w-full p-4 border border-gray-200 rounded-2xl focus:ring-4 focus:ring-indigo-100 focus:border-indigo-500 outline-none transition-all text-lg bg-gray-50 focus:bg-white" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} />
+                                        <label className="block text-sm font-medium text-gray-600 mb-2">اسم الحساب الرئيسي</label>
+                                        <input type="text" placeholder="" className="w-full p-4 border border-gray-200 rounded-2xl focus:ring-4 focus:ring-indigo-100 focus:border-indigo-500 outline-none transition-all text-lg bg-gray-50 focus:bg-white" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} />
+                                        <p className="text-xs text-gray-400 mt-2 mr-1">هذا هو الاسم الذي سيظهر كعنوان رئيسي لجميع ملفاتك (مثل: صرفة السفر، مصاريف البيت...)</p>
                                     </div>
-                                    <div>
-                                        <label className="block text-sm font-medium text-gray-600 mb-3">لون التمييز</label>
-                                        <div className="flex gap-3 justify-center flex-wrap bg-gray-50 p-4 rounded-2xl border border-gray-100">
-                                            {['bg-indigo-500', 'bg-rose-500', 'bg-emerald-500', 'bg-amber-500', 'bg-violet-600', 'bg-pink-500', 'bg-cyan-600', 'bg-slate-700'].map(c => (
-                                                <button key={c} onClick={() => setFormData({...formData, color: c})} className={`w-10 h-10 rounded-full ${c} ${formData.color === c ? 'ring-4 ring-offset-2 ring-gray-300 scale-110 shadow-lg' : 'hover:scale-110 opacity-80 hover:opacity-100'} transition-all`}></button>
-                                            ))}
-                                        </div>
-                                    </div>
+                                    
                                     {error && <p className="text-rose-500 text-sm text-center bg-rose-50 p-2 rounded-lg">{error}</p>}
-                                    <div className="flex gap-4 pt-6">
-                                        <button onClick={() => setView('list')} className="flex-1 py-3.5 text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-2xl font-bold transition-colors">إلغاء</button>
+                                    
+                                    {view === 'edit' && (
+                                        <div className="pt-2">
+                                            <button onClick={handleDeleteUser} className="w-full py-3 text-rose-600 bg-rose-50 hover:bg-rose-100 rounded-2xl font-bold transition-colors border border-rose-200 flex items-center justify-center gap-2">
+                                                <Icons.Trash className="w-5 h-5"/> حذف الحساب نهائياً
+                                            </button>
+                                        </div>
+                                    )}
+
+                                    <div className="flex gap-4 pt-4">
+                                        {(users.length > 0 || view === 'edit') && (
+                                            <button onClick={() => setView('list')} className="flex-1 py-3.5 text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-2xl font-bold transition-colors">إلغاء</button>
+                                        )}
                                         <button onClick={view === 'add' ? handleCreateUser : handleEditUser} className="flex-1 py-3.5 bg-gradient-to-r from-indigo-600 to-blue-600 text-white rounded-2xl font-bold hover:shadow-lg hover:shadow-indigo-200 transition-all transform hover:-translate-y-0.5">{view === 'add' ? 'حفظ وبدء' : 'حفظ التعديلات'}</button>
                                     </div>
                                 </div>
@@ -299,8 +332,8 @@
                                 <div className="w-24 h-24 mx-auto bg-gray-900 rounded-3xl flex items-center justify-center text-yellow-400 text-5xl font-bold mb-6 shadow-2xl rotate-3 hover:rotate-0 transition-transform"><Icons.Admin className="h-12 w-12"/></div>
                                 <h2 className="text-2xl font-bold mb-2 text-gray-800">الوضع الإداري</h2>
                                 <p className="text-gray-500 mb-8 text-sm">منطقة محظورة لغير المشرفين</p>
-                                <input autoFocus type="password" placeholder="••••" className="w-full text-center text-4xl tracking-[0.5em] p-4 border-2 border-gray-200 rounded-2xl focus:border-gray-900 outline-none mb-6 font-mono" value={adminPin} onChange={e => setAdminPin(e.target.value)} onKeyDown={e => e.key === 'Enter' && handleAdminLogin()} />
-                                {error && <p className="text-rose-500 text-sm mb-4 font-bold">{error}</p>}
+                                <input autoFocus type="password" placeholder="•••••" className="w-full text-center text-4xl tracking-[0.5em] p-4 border-2 border-gray-200 rounded-2xl focus:border-gray-900 outline-none mb-6 font-mono" value={adminPin} onChange={e => setAdminPin(e.target.value)} onKeyDown={e => e.key === 'Enter' && handleAdminLogin()} />
+                                {error && <p className="text-red-500 text-sm mb-4 font-bold">{error}</p>}
                                 <div className="flex flex-col gap-3">
                                     <button onClick={handleAdminLogin} className="w-full bg-gray-900 text-white py-3.5 rounded-2xl font-bold shadow-lg hover:bg-black transition-colors">تحقق</button>
                                     <button onClick={() => setView('list')} className="text-gray-400 hover:text-gray-600 text-sm py-2">إلغاء والعودة</button>
@@ -325,7 +358,7 @@
             const [modal, setModal] = useState(null); 
             const [newSheetName, setNewSheetName] = useState('');
             const [msg, setMsg] = useState(null);
-            const [input, setInput] = useState({ date: new Date().toISOString().split('T')[0], cat: 'عام', desc: '', inc: '', exp: '' });
+            const [input, setInput] = useState({ date: new Date().toISOString().split('T')[0], cat: 'عام', desc: '', notes: '', inc: '', exp: '' });
 
             const { db, appId } = storage;
             const notify = (text) => { setMsg(text); setTimeout(() => setMsg(null), 3000); };
@@ -346,7 +379,10 @@
                             const latest = mySheets.reduce((a, b) => new Date(a.updatedAt) > new Date(b.updatedAt) ? a : b);
                             setCurrentSheet(latest); setEntries(latest.entries);
                         } else if (!currentSheet) {
-                            setCurrentSheet({ name: 'ملف جديد', id: 'temp' }); setEntries([]);
+                            // If no sheets, prepare temp, BUT prompt for new file creation
+                            setCurrentSheet({ name: '', id: 'temp' }); 
+                            setEntries([]);
+                            setModal('new'); // Open modal immediately for first file
                         }
                     }
                 });
@@ -367,8 +403,32 @@
                 return true;
             };
 
+            // --- Delete Sheet Function (Improved) ---
+            const deleteSheet = async (e, sheetId, sheetName) => {
+                // Prevent opening the sheet when delete is clicked
+                e.stopPropagation();
+                
+                if (window.confirm(`هل أنت متأكد من حذف الملف "${sheetName}"؟`)) {
+                    notify("جاري الحذف..."); // Immediate feedback
+                    try {
+                        await db.collection('artifacts').doc(appId).collection('public_data_sheets').doc(sheetId).delete();
+                        
+                        // Check if we deleted the active sheet
+                        if (currentSheet && currentSheet.id === sheetId) {
+                            setCurrentSheet({ name: '', id: 'temp' });
+                            setEntries([]);
+                            // The snapshot listener will update the list, but if list becomes empty, 'new' modal will show
+                            // If other sheets exist, the effect will pick the latest one automatically
+                        }
+                        notify("تم حذف الملف بنجاح");
+                    } catch (err) {
+                        alert("حدث خطأ أثناء الحذف");
+                    }
+                }
+            };
+
             const handleLogout = async () => {
-                if (entries.length > 0 && currentSheet?.name !== 'ملف جديد') await saveSheet(currentSheet.name, entries);
+                if (entries.length > 0 && currentSheet?.name && currentSheet.name !== 'ملف جديد') await saveSheet(currentSheet.name, entries);
                 onLogout();
             };
 
@@ -384,7 +444,7 @@
                 if(!input.desc) return;
                 const newEntries = [...entries, { id: Date.now(), ...input }];
                 setEntries(newEntries);
-                setInput({...input, desc: '', inc: '', exp: ''});
+                setInput({...input, desc: '', notes: '', inc: '', exp: ''});
                 if (currentSheet.id !== 'temp') saveSheet(currentSheet.name, newEntries);
             };
 
@@ -399,7 +459,7 @@
                             <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
                                 {allUsers.map(u => (
                                     <div key={u.id} onClick={() => { setTargetUser(u); setCurrentSheet(null); setEntries([]); }} className="bg-white p-6 rounded-3xl shadow-sm hover:shadow-xl hover:-translate-y-1 cursor-pointer transition border border-slate-100 text-center group">
-                                        <div className={`w-20 h-20 mx-auto ${u.color} rounded-full flex items-center justify-center text-white text-3xl font-bold mb-4 shadow-lg group-hover:scale-110 transition-transform`}>{u.name[0]}</div>
+                                        <div className={`w-20 h-20 mx-auto ${u.color || 'bg-indigo-600'} rounded-full flex items-center justify-center text-white text-3xl font-bold mb-4 shadow-lg group-hover:scale-110 transition-transform`}>{u.name[0]}</div>
                                         <h3 className="font-bold text-lg text-slate-800">{u.name}</h3>
                                         <p className="text-xs text-indigo-500 bg-indigo-50 py-1 px-3 rounded-full inline-block mt-2 font-medium">عرض الملفات</p>
                                     </div>
@@ -423,7 +483,7 @@
 
                         <div className={`p-5 text-white flex flex-col md:flex-row justify-between items-center gap-6 no-print transition-colors duration-300 ${user.isAdmin ? 'bg-slate-900' : 'bg-gradient-to-r from-indigo-700 via-purple-700 to-indigo-800'}`}>
                             <div className="flex items-center gap-4 w-full md:w-auto">
-                                <div className={`w-12 h-12 rounded-2xl ${user.isAdmin ? 'bg-yellow-500 text-yellow-900' : user.color} flex items-center justify-center font-bold text-2xl shadow-lg ring-2 ring-white/20`}>{user.isAdmin ? <Icons.Admin className="h-7 w-7"/> : user.name[0]}</div>
+                                <div className={`w-12 h-12 rounded-2xl ${user.isAdmin ? 'bg-yellow-500 text-yellow-900' : (user.color || 'bg-indigo-600')} flex items-center justify-center font-bold text-2xl shadow-lg ring-2 ring-white/20`}>{user.isAdmin ? <Icons.Admin className="h-7 w-7"/> : user.name[0]}</div>
                                 <div className="flex-1">
                                     <div className="text-[10px] uppercase tracking-wider text-white/60 font-bold mb-0.5">اسم الملف</div>
                                     <input className="bg-transparent border-b-2 border-white/20 font-bold text-lg outline-none w-full md:w-60 focus:border-white/80 transition-all text-white placeholder-white/40" value={currentSheet?.name || ''} onChange={e => setCurrentSheet({...currentSheet, name: e.target.value})} placeholder="اكتب اسم الملف..."/>
@@ -438,8 +498,14 @@
                                         {sheets.length === 0 && <div className="p-8 text-sm text-center text-gray-400 flex flex-col items-center gap-3"><div className="bg-gray-100 p-3 rounded-full"><Icons.Folder className="w-6 h-6 opacity-30"/></div>لا توجد ملفات محفوظة</div>}
                                         {sheets.map(s => (
                                             <div key={s.id} onClick={() => { setCurrentSheet(s); setEntries(s.entries); setShowMenu(false); }} className="p-4 hover:bg-indigo-50 cursor-pointer border-b last:border-0 text-sm flex justify-between items-center group transition-colors">
-                                                <div className="flex items-center gap-3 font-bold text-gray-700 group-hover:text-indigo-700"><div className="bg-indigo-100 p-1.5 rounded-lg text-indigo-500 group-hover:bg-indigo-200 transition"><Icons.File className="w-4 h-4"/></div>{s.name}</div>
-                                                <span className="text-[10px] text-gray-400 font-mono bg-gray-100 px-2 py-1 rounded-md group-hover:bg-white">{new Date(s.updatedAt).toLocaleDateString('en-GB')}</span>
+                                                <div className="flex items-center gap-3 font-bold text-gray-700 group-hover:text-indigo-700">
+                                                    <div className="bg-indigo-100 p-1.5 rounded-lg text-indigo-500 group-hover:bg-indigo-200 transition"><Icons.File className="w-4 h-4"/></div>
+                                                    <span className="truncate w-28 text-right">{s.name}</span>
+                                                </div>
+                                                <div className="flex items-center gap-2">
+                                                     <span className="text-[10px] text-gray-400 font-mono bg-gray-100 px-2 py-1 rounded-md group-hover:bg-white">{new Date(s.updatedAt).toLocaleDateString('en-GB')}</span>
+                                                     <button onClick={(e) => deleteSheet(e, s.id, s.name)} className="text-gray-300 hover:text-red-500 p-1 rounded hover:bg-red-50 transition-colors"><Icons.Trash className="w-4 h-4"/></button>
+                                                </div>
                                             </div>
                                         ))}
                                     </div>}
@@ -470,9 +536,13 @@
                                         <div className="absolute left-3 top-3.5 text-gray-400 pointer-events-none"><Icons.Folder className="w-4 h-4"/></div>
                                     </div>
                                 </div>
-                                <div className="md:col-span-4">
+                                <div className="md:col-span-3">
                                     <label className="text-[10px] text-gray-400 font-bold uppercase mr-1">البيان</label>
                                     <input type="text" placeholder="اكتب وصف العملية..." className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-indigo-100 focus:border-indigo-500 outline-none transition-all font-medium" value={input.desc} onChange={e => setInput({...input, desc: e.target.value})} />
+                                </div>
+                                <div className="md:col-span-2">
+                                    <label className="text-[10px] text-gray-400 font-bold uppercase mr-1">ملاحظات</label>
+                                    <input type="text" placeholder="ملاحظات..." className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-indigo-100 focus:border-indigo-500 outline-none transition-all font-medium" value={input.notes} onChange={e => setInput({...input, notes: e.target.value})} />
                                 </div>
                                 <div className="md:col-span-1">
                                     <label className="text-[10px] text-emerald-500 font-bold uppercase mr-1">وارد (+)</label>
@@ -482,8 +552,8 @@
                                     <label className="text-[10px] text-rose-500 font-bold uppercase mr-1">منصرف (-)</label>
                                     <input type="number" placeholder="0" className="w-full p-3 bg-rose-50/50 border border-rose-100 rounded-xl focus:bg-white focus:ring-2 focus:ring-rose-100 focus:border-rose-500 outline-none transition-all font-bold text-rose-700 text-center" value={input.exp} onChange={e => setInput({...input, exp: e.target.value})} />
                                 </div>
-                                <div className="md:col-span-2">
-                                    <button onClick={addEntry} className="w-full py-3.5 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 font-bold shadow-lg shadow-indigo-200 transition-transform active:scale-95 flex justify-center items-center gap-2"><Icons.Plus className="w-5 h-5"/> إضافة</button>
+                                <div className="md:col-span-1">
+                                    <button onClick={addEntry} className="w-full py-3.5 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 font-bold shadow-lg shadow-indigo-200 transition-transform active:scale-95 flex justify-center items-center gap-2"><Icons.Plus className="w-5 h-5"/></button>
                                 </div>
                             </div>
                         </div>
@@ -493,10 +563,20 @@
                         <div className="overflow-x-auto min-h-[400px]">
                             <table className="w-full text-center text-sm border-collapse">
                                 <thead className="bg-gray-50 text-gray-500 font-bold border-b border-gray-100 sticky top-0">
-                                    <tr><th className="p-4">#</th><th className="p-4 text-right">التاريخ</th><th className="p-4">التصنيف</th><th className="p-4 text-right w-1/3">البيان</th><th className="p-4 text-emerald-600">وارد</th><th className="p-4 text-rose-600">منصرف</th><th className="p-4 text-indigo-600">الرصيد</th><th className="p-4 no-print"></th></tr>
+                                    <tr>
+                                        <th className="p-4">#</th>
+                                        <th className="p-4 text-right">التاريخ</th>
+                                        <th className="p-4">التصنيف</th>
+                                        <th className="p-4 text-right w-1/4">البيان</th>
+                                        <th className="p-4 text-emerald-600">وارد</th>
+                                        <th className="p-4 text-rose-600">منصرف</th>
+                                        <th className="p-4 text-indigo-600">الرصيد</th>
+                                        <th className="p-4 text-right w-1/5">ملاحظات</th>
+                                        <th className="p-4 no-print"></th>
+                                    </tr>
                                 </thead>
                                 <tbody className="divide-y divide-gray-50">
-                                    {entries.length === 0 && <tr><td colSpan="8" className="p-12 text-center text-gray-300 font-medium text-lg">لم يتم إضافة عمليات بعد</td></tr>}
+                                    {entries.length === 0 && <tr><td colSpan="9" className="p-12 text-center text-gray-300 font-medium text-lg">لم يتم إضافة عمليات بعد</td></tr>}
                                     {calc.map((row, i) => (
                                         <tr key={row.id} className="hover:bg-blue-50/30 transition-colors group">
                                             <td className="p-4 text-gray-400 font-mono text-xs">{i + 1}</td>
@@ -506,13 +586,20 @@
                                             <td className="p-4 text-emerald-600 font-bold font-mono text-base">{row.inc ? Number(row.inc).toLocaleString() : '-'}</td>
                                             <td className="p-4 text-rose-600 font-bold font-mono text-base">{row.exp ? Number(row.exp).toLocaleString() : '-'}</td>
                                             <td className="p-4 text-indigo-900 font-black font-mono text-base bg-indigo-50/30 rounded-lg">{row.balance.toLocaleString()}</td>
+                                            <td className="p-4 text-right text-gray-600 text-xs border-r border-gray-100">{row.notes}</td>
                                             <td className="p-4 no-print"><button onClick={() => {const newEntries=entries.filter(e=>e.id!==row.id); setEntries(newEntries); saveSheet(currentSheet.name,newEntries);}} className="p-2 text-gray-300 hover:text-rose-500 hover:bg-rose-50 rounded-lg transition-colors opacity-0 group-hover:opacity-100"><Icons.Trash className="w-4 h-4"/></button></td>
                                         </tr>
                                     ))}
-                                    {Array(Math.max(0, 8 - calc.length)).fill(0).map((_, i) => <tr key={`empty-${i}`} className="h-16 print-only border-b border-gray-100"><td colSpan="8"></td></tr>)}
+                                    {Array(Math.max(0, 8 - calc.length)).fill(0).map((_, i) => <tr key={`empty-${i}`} className="h-16 print-only border-b border-gray-100"><td colSpan="9"></td></tr>)}
                                 </tbody>
                                 <tfoot className="bg-gray-100 font-bold border-t-2 border-gray-200 text-gray-700">
-                                    <tr><td colSpan="4" className="p-4 text-left pl-8 text-lg">الإجمالي النهائي</td><td className="p-4 text-emerald-600 text-lg">{calc.reduce((a,b)=>a+(Number(b.inc)||0),0).toLocaleString()}</td><td className="p-4 text-rose-600 text-lg">{calc.reduce((a,b)=>a+(Number(b.exp)||0),0).toLocaleString()}</td><td className="p-4 text-indigo-900 text-xl bg-indigo-100/50">{calc.length>0?calc[calc.length-1].balance.toLocaleString():0}</td><td></td></tr>
+                                    <tr>
+                                        <td colSpan="4" className="p-4 text-left pl-8 text-lg">الإجمالي النهائي</td>
+                                        <td className="p-4 text-emerald-600 text-lg">{calc.reduce((a,b)=>a+(Number(b.inc)||0),0).toLocaleString()}</td>
+                                        <td className="p-4 text-rose-600 text-lg">{calc.reduce((a,b)=>a+(Number(b.exp)||0),0).toLocaleString()}</td>
+                                        <td className="p-4 text-indigo-900 text-xl bg-indigo-100/50">{calc.length>0?calc[calc.length-1].balance.toLocaleString():0}</td>
+                                        <td colSpan="2"></td>
+                                    </tr>
                                 </tfoot>
                             </table>
                         </div>
@@ -521,22 +608,33 @@
                     {modal === 'new' && (
                         <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-in fade-in zoom-in-95 duration-200">
                             <div className="bg-white p-8 rounded-3xl w-full max-w-sm shadow-2xl relative">
-                                <button onClick={() => setModal(null)} className="absolute left-6 top-6 text-gray-400 hover:text-gray-600"><Icons.X className="w-6 h-6"/></button>
                                 <div className="w-16 h-16 bg-blue-50 rounded-full flex items-center justify-center mb-4 mx-auto text-blue-500"><Icons.File className="w-8 h-8"/></div>
-                                <h3 className="text-2xl font-bold mb-2 text-center text-gray-800">ملف جديد</h3>
-                                <p className="text-gray-500 text-center mb-6 text-sm">سيتم حفظ الملف الحالي تلقائياً</p>
+                                <h3 className="text-2xl font-bold mb-2 text-center text-gray-800">
+                                    {sheets.length === 0 ? "أنشئ ملفك الأول" : "ملف جديد"}
+                                </h3>
+                                <p className="text-gray-500 text-center mb-6 text-sm">
+                                    {sheets.length === 0 ? "يجب تسمية الملف الأول للبدء في استخدام النظام" : "سيتم حفظ الملف الحالي تلقائياً"}
+                                </p>
                                 <input autoFocus type="text" placeholder="اسم الملف الجديد (مثلاً: مصاريف 2026)" className="w-full p-4 bg-gray-50 border border-gray-200 rounded-2xl focus:bg-white focus:ring-4 focus:ring-blue-100 outline-none mb-6 text-lg font-medium text-center" value={newSheetName} onChange={e => setNewSheetName(e.target.value)} />
                                 <div className="flex gap-3">
+                                    {sheets.length > 0 && (
+                                        <button onClick={() => setModal(null)} className="flex-1 py-3.5 text-gray-600 bg-gray-100 rounded-xl font-bold hover:bg-gray-200 transition-all">إلغاء</button>
+                                    )}
                                     <button onClick={async () => {
                                         if (newSheetName) {
-                                            if (currentSheet.name !== 'ملف جديد') await saveSheet(currentSheet.name, entries);
+                                            if (currentSheet.name && currentSheet.name !== 'ملف جديد') await saveSheet(currentSheet.name, entries);
                                             const newID = generateID();
                                             await saveSheet(newSheetName, [], newID);
                                             setCurrentSheet({ name: newSheetName, id: newID });
                                             setEntries([]); setNewSheetName(''); setModal(null);
                                         }
-                                    }} className="w-full py-3.5 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700 shadow-lg shadow-blue-200 transition-all">إنشاء الملف</button>
+                                    }} className="flex-1 py-3.5 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700 shadow-lg shadow-blue-200 transition-all">
+                                        {sheets.length === 0 ? "بدء الاستخدام" : "إنشاء الملف"}
+                                    </button>
                                 </div>
+                                {sheets.length === 0 && (
+                                    <button onClick={onLogout} className="mt-4 text-red-400 text-sm hover:text-red-600 underline block w-full text-center">تسجيل خروج</button>
+                                )}
                             </div>
                         </div>
                     )}
