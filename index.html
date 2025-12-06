@@ -1,0 +1,577 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>مدير المصروفات - التصميم الجديد</title>
+    
+    <!-- React & ReactDOM -->
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    
+    <!-- Babel -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#4f46e5',
+                        secondary: '#0ea5e9',
+                        accent: '#8b5cf6',
+                    },
+                    fontFamily: {
+                        sans: ['Tajawal', 'sans-serif'],
+                    }
+                }
+            }
+        }
+    </script>
+    <!-- Google Fonts: Tajawal for better Arabic typography -->
+    <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800&display=swap" rel="stylesheet">
+
+    <!-- Firebase SDKs -->
+    <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+
+    <style>
+        body { font-family: 'Tajawal', sans-serif; background-color: #f3f4f6; }
+        @media print {
+            @page { size: A4; margin: 1cm; }
+            body { -webkit-print-color-adjust: exact; background-color: white !important; }
+            .no-print { display: none !important; }
+            .print-only { display: block !important; }
+            .shadow-xl, .shadow-lg, .shadow-md { box-shadow: none !important; }
+            .rounded-3xl, .rounded-2xl, .rounded-xl { border-radius: 0 !important; }
+            .bg-gradient-to-r, .bg-gradient-to-br { background: none !important; background-color: #eee !important; }
+            table { width: 100% !important; }
+            .min-h-screen { min-height: 0 !important; background-color: white !important; }
+            .max-w-6xl { max-width: none !important; margin: 0 !important; }
+        }
+        .loader { border: 4px solid #f3f3f3; border-top: 4px solid #6366f1; border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        
+        /* Glassmorphism utilities */
+        .glass {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+    </style>
+</head>
+<body class="bg-gray-50 text-gray-800">
+    <div id="root"></div>
+
+    <script type="text/babel">
+        // ====================================================================
+        //  إعدادات قاعدة البيانات
+        // ====================================================================
+        
+        const MY_FIREBASE_CONFIG = {
+          apiKey: "AIzaSyCQdadpjEYK8zjroLVVRNuW_x-IGSBIpB0",
+          authDomain: "malaebapp-d6409.firebaseapp.com",
+          projectId: "malaebapp-d6409",
+          storageBucket: "malaebapp-d6409.firebasestorage.app",
+          messagingSenderId: "267701606872",
+          appId: "1:267701606872:web:72f422d358a7a6d5debaad",
+          measurementId: "G-0Y5EXZ7PR9"
+        };
+
+        const ADMIN_PIN_CODE = "1234";
+
+        // ====================================================================
+
+        const { useState, useEffect, useRef } = React;
+        
+        // --- Safe ID Generator ---
+        const generateID = () => {
+            return Date.now().toString(36) + Math.random().toString(36).substr(2);
+        };
+
+        // --- Firebase Helper ---
+        const useStorage = () => {
+            const [isCloud, setIsCloud] = useState(false);
+            const [db, setDb] = useState(null);
+            const [appId, setAppId] = useState(null);
+            const [loading, setLoading] = useState(true);
+            const [error, setError] = useState(null);
+
+            useEffect(() => {
+                const init = async () => {
+                    try {
+                        let config = MY_FIREBASE_CONFIG;
+                        if (!config && typeof __firebase_config !== 'undefined') config = JSON.parse(__firebase_config);
+
+                        if (config && typeof firebase !== 'undefined') {
+                            if (!firebase.apps.length) firebase.initializeApp(config);
+                            const app = firebase.app();
+                            const auth = firebase.auth();
+                            const firestore = firebase.firestore();
+
+                            if (MY_FIREBASE_CONFIG) await auth.signInAnonymously();
+                            else if (typeof __initial_auth_token !== 'undefined') await auth.signInWithCustomToken(__initial_auth_token);
+                            else await auth.signInAnonymously();
+
+                            setDb(firestore);
+                            setAppId(MY_FIREBASE_CONFIG ? 'my-allowance-app' : (typeof __app_id !== 'undefined' ? __app_id : 'default-app'));
+                            setIsCloud(true);
+                        } else {
+                            throw new Error("تكوين Firebase مفقود");
+                        }
+                    } catch (e) { 
+                        console.error("Connection Error", e); 
+                        setError("تعذر الاتصال بالسيرفر. يرجى التحقق من الإنترنت.");
+                    } 
+                    finally { setLoading(false); }
+                };
+                init();
+            }, []);
+            return { db, appId, loading, error };
+        };
+
+        // --- Icons Definition ---
+        const Icon = ({ d, className }) => <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d={d}/></svg>;
+        
+        const Icons = {
+            Plus: (p) => <Icon d="M5 12h14M12 5v14" {...p} />,
+            Trash: (p) => <Icon d="M3 6h18M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2" {...p} />,
+            Save: (p) => <Icon d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z" {...p} />,
+            Folder: (p) => <Icon d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" {...p} />,
+            Cloud: (p) => <Icon d="M18 10h-1.26A8 8 0 109 20h9a5 5 0 000-10z" {...p} />,
+            Logout: (p) => <Icon d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4m7 14l5-5-5-5m5 5H9" {...p} />,
+            Printer: (p) => <Icon d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a1 1 0 11-2 0 1 1 0 012 0z" {...p} />, // Added Printer Icon
+            File: (p) => <Icon d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" {...p} />,
+            Check: (p) => <Icon d="M20 6L9 17l-5-5" {...p} />,
+            X: (p) => <Icon d="M18 6L6 18M6 6l12 12" {...p} />,
+            Pencil: (p) => <Icon d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" {...p} />,
+            User: (p) => <Icon d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2M12 7a4 4 0 100-8 4 4 0 000 8z" {...p} />,
+            Admin: (p) => <Icon d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" {...p} />
+        };
+
+        // --- User Selection Screen ---
+        const UserSelection = ({ onLogin, storage }) => {
+            const [users, setUsers] = useState([]);
+            const [loading, setLoading] = useState(true);
+            const [view, setView] = useState('list');
+            const [formData, setFormData] = useState({ name: '', color: 'bg-indigo-500' });
+            const [selectedUser, setSelectedUser] = useState(null);
+            const [adminPin, setAdminPin] = useState('');
+            const [error, setError] = useState('');
+
+            const { db, appId } = storage;
+
+            useEffect(() => {
+                if (db) {
+                    const usersRef = db.collection('artifacts').doc(appId).collection('public_data_users');
+                    const unsub = usersRef.onSnapshot((snapshot) => {
+                        setUsers(snapshot.docs.map(d => d.data()));
+                        setLoading(false);
+                    }, (err) => {
+                        console.error("Firebase Error:", err);
+                        setLoading(false);
+                    });
+                    return () => unsub();
+                }
+            }, [db, appId]);
+
+            const handleCreateUser = async () => {
+                if (!formData.name) return setError('الاسم مطلوب');
+                setLoading(true);
+                const newUser = { id: generateID(), name: formData.name, color: formData.color, createdAt: new Date().toISOString() };
+                try {
+                    await db.collection('artifacts').doc(appId).collection('public_data_users').doc(newUser.id).set(newUser);
+                    setFormData({ name: '', color: 'bg-indigo-500' }); setView('list');
+                } catch(e) { setError('حدث خطأ أثناء الحفظ بالسيرفر'); } 
+                finally { setLoading(false); }
+            };
+
+            const handleEditUser = async () => {
+                if (!formData.name) return setError('الاسم مطلوب');
+                setLoading(true);
+                try {
+                    const updatedUser = { ...selectedUser, name: formData.name, color: formData.color };
+                    await db.collection('artifacts').doc(appId).collection('public_data_users').doc(updatedUser.id).update(updatedUser);
+                    setFormData({ name: '', color: 'bg-indigo-500' }); setSelectedUser(null); setView('list');
+                } catch(e) { setError('حدث خطأ أثناء التحديث'); } 
+                finally { setLoading(false); }
+            };
+
+            const openEditView = (user, e) => {
+                e.stopPropagation();
+                setSelectedUser(user);
+                setFormData({ name: user.name, color: user.color });
+                setView('edit');
+                setError('');
+            };
+
+            const handleAdminLogin = () => {
+                if (adminPin === ADMIN_PIN_CODE) {
+                    onLogin({ id: 'admin', name: 'المشرف العام', color: 'bg-gray-800', isAdmin: true });
+                } else { setError('رمز المشرف غير صحيح'); setAdminPin(''); }
+            };
+
+            if (loading) return <div className="min-h-screen flex items-center justify-center bg-gray-50"><div className="loader"></div></div>;
+
+            return (
+                <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-blue-50 to-purple-50 flex flex-col items-center justify-center p-4" dir="rtl">
+                    <div className="glass p-10 rounded-[2.5rem] shadow-2xl w-full max-w-4xl relative overflow-hidden transition-all hover:shadow-indigo-200/50">
+                        
+                        {/* Hidden Admin Button */}
+                        {view === 'list' && <button onClick={() => { setView('admin'); setError(''); }} className="absolute top-0 left-0 w-24 h-24 z-50 opacity-0 cursor-default"></button>}
+
+                        <div className="text-center mb-12 mt-2">
+                            <h1 className="text-5xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-indigo-600 to-purple-600 mb-3 tracking-tight">نظام المصروفات</h1>
+                            <p className="text-gray-500 text-lg">إدارة ذكية وسهلة لمصروفاتك</p>
+                        </div>
+
+                        {view === 'list' && (
+                            <div>
+                                <div className="flex justify-between items-end mb-8 border-b pb-4 border-gray-100">
+                                    <h2 className="text-2xl font-bold text-gray-700">الملف الشخصي</h2>
+                                    {users.length === 0 && (
+                                        <button onClick={() => { setFormData({ name: '', color: 'bg-indigo-500' }); setView('add'); }} className="bg-gradient-to-r from-indigo-500 to-blue-500 text-white px-6 py-2.5 rounded-full flex items-center gap-2 hover:shadow-lg hover:scale-105 transition transform">
+                                            <Icons.Plus className="h-5 w-5"/> إنشاء حساب جديد
+                                        </button>
+                                    )}
+                                </div>
+                                {users.length === 0 ? (
+                                    <div className="text-center py-16 bg-white/50 rounded-3xl border-2 border-dashed border-gray-200">
+                                        <div className="bg-indigo-50 w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-4">
+                                            <Icons.User className="h-10 w-10 text-indigo-300" />
+                                        </div>
+                                        <p className="text-gray-400 mb-6 text-lg">لا يوجد حساب مسجل حالياً</p>
+                                        <button onClick={() => { setFormData({ name: '', color: 'bg-indigo-500' }); setView('add'); }} className="bg-indigo-600 text-white px-8 py-3 rounded-2xl font-bold hover:bg-indigo-700 shadow-xl shadow-indigo-200 transition-all">
+                                            ابدأ الآن
+                                        </button>
+                                    </div>
+                                ) : (
+                                    <div className="flex justify-center">
+                                        {users.map(u => (
+                                            <div key={u.id} onClick={() => onLogin(u)} className="bg-white p-8 rounded-[2rem] cursor-pointer shadow-lg hover:shadow-2xl border border-gray-100 transition-all group text-center relative w-full max-w-sm transform hover:-translate-y-2">
+                                                <button onClick={(e) => openEditView(u, e)} className="absolute top-4 left-4 p-2.5 bg-gray-50 hover:bg-indigo-100 text-gray-400 hover:text-indigo-600 rounded-full transition-colors z-20 shadow-sm">
+                                                    <Icons.Pencil className="h-4 w-4" />
+                                                </button>
+                                                <div className={`w-28 h-28 mx-auto ${u.color} rounded-full flex items-center justify-center text-white text-5xl font-bold mb-6 shadow-xl ring-8 ring-gray-50 group-hover:scale-110 transition-transform duration-300`}>
+                                                    {u.name[0]}
+                                                </div>
+                                                <h3 className="font-bold text-2xl text-gray-800 mb-3">{u.name}</h3>
+                                                <div className="inline-flex items-center gap-2 bg-green-50 text-green-600 px-4 py-1.5 rounded-full text-sm font-semibold border border-green-100">
+                                                    <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div> دخول مباشر
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+                        )}
+
+                        {(view === 'add' || view === 'edit') && (
+                            <div className="max-w-md mx-auto py-4">
+                                <h2 className="text-2xl font-bold mb-8 text-center text-gray-800">{view === 'add' ? 'إعداد الحساب الجديد' : 'تعديل الحساب'}</h2>
+                                <div className="space-y-6">
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-600 mb-2">الاسم</label>
+                                        <input type="text" placeholder="مثلاً: محمد أحمد" className="w-full p-4 border border-gray-200 rounded-2xl focus:ring-4 focus:ring-indigo-100 focus:border-indigo-500 outline-none transition-all text-lg bg-gray-50 focus:bg-white" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} />
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-600 mb-3">لون التمييز</label>
+                                        <div className="flex gap-3 justify-center flex-wrap bg-gray-50 p-4 rounded-2xl border border-gray-100">
+                                            {['bg-indigo-500', 'bg-rose-500', 'bg-emerald-500', 'bg-amber-500', 'bg-violet-600', 'bg-pink-500', 'bg-cyan-600', 'bg-slate-700'].map(c => (
+                                                <button key={c} onClick={() => setFormData({...formData, color: c})} className={`w-10 h-10 rounded-full ${c} ${formData.color === c ? 'ring-4 ring-offset-2 ring-gray-300 scale-110 shadow-lg' : 'hover:scale-110 opacity-80 hover:opacity-100'} transition-all`}></button>
+                                            ))}
+                                        </div>
+                                    </div>
+                                    {error && <p className="text-rose-500 text-sm text-center bg-rose-50 p-2 rounded-lg">{error}</p>}
+                                    <div className="flex gap-4 pt-6">
+                                        <button onClick={() => setView('list')} className="flex-1 py-3.5 text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-2xl font-bold transition-colors">إلغاء</button>
+                                        <button onClick={view === 'add' ? handleCreateUser : handleEditUser} className="flex-1 py-3.5 bg-gradient-to-r from-indigo-600 to-blue-600 text-white rounded-2xl font-bold hover:shadow-lg hover:shadow-indigo-200 transition-all transform hover:-translate-y-0.5">{view === 'add' ? 'حفظ وبدء' : 'حفظ التعديلات'}</button>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
+                        {view === 'admin' && (
+                            <div className="max-w-xs mx-auto text-center py-8">
+                                <div className="w-24 h-24 mx-auto bg-gray-900 rounded-3xl flex items-center justify-center text-yellow-400 text-5xl font-bold mb-6 shadow-2xl rotate-3 hover:rotate-0 transition-transform"><Icons.Admin className="h-12 w-12"/></div>
+                                <h2 className="text-2xl font-bold mb-2 text-gray-800">الوضع الإداري</h2>
+                                <p className="text-gray-500 mb-8 text-sm">منطقة محظورة لغير المشرفين</p>
+                                <input autoFocus type="password" placeholder="••••" className="w-full text-center text-4xl tracking-[0.5em] p-4 border-2 border-gray-200 rounded-2xl focus:border-gray-900 outline-none mb-6 font-mono" value={adminPin} onChange={e => setAdminPin(e.target.value)} onKeyDown={e => e.key === 'Enter' && handleAdminLogin()} />
+                                {error && <p className="text-rose-500 text-sm mb-4 font-bold">{error}</p>}
+                                <div className="flex flex-col gap-3">
+                                    <button onClick={handleAdminLogin} className="w-full bg-gray-900 text-white py-3.5 rounded-2xl font-bold shadow-lg hover:bg-black transition-colors">تحقق</button>
+                                    <button onClick={() => setView('list')} className="text-gray-400 hover:text-gray-600 text-sm py-2">إلغاء والعودة</button>
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                </div>
+            );
+        };
+
+        // --- Main Dashboard ---
+        const Dashboard = ({ user, storage, onLogout }) => {
+            const [sheets, setSheets] = useState([]);
+            const [currentSheet, setCurrentSheet] = useState(null);
+            const [entries, setEntries] = useState([]);
+            const [allUsers, setAllUsers] = useState([]);
+            const [targetUser, setTargetUser] = useState(null);
+            const [loading, setLoading] = useState(false);
+            const [saving, setSaving] = useState(false);
+            const [showMenu, setShowMenu] = useState(false);
+            const [modal, setModal] = useState(null); 
+            const [newSheetName, setNewSheetName] = useState('');
+            const [msg, setMsg] = useState(null);
+            const [input, setInput] = useState({ date: new Date().toISOString().split('T')[0], cat: 'عام', desc: '', inc: '', exp: '' });
+
+            const { db, appId } = storage;
+            const notify = (text) => { setMsg(text); setTimeout(() => setMsg(null), 3000); };
+
+            useEffect(() => {
+                if (user.isAdmin) db.collection('artifacts').doc(appId).collection('public_data_users').onSnapshot(snap => setAllUsers(snap.docs.map(d => d.data())));
+                
+                const sheetsRef = db.collection('artifacts').doc(appId).collection('public_data_sheets');
+                const unsub = sheetsRef.onSnapshot((snapshot) => {
+                    const allSheets = snapshot.docs.map(d => d.data());
+                    const relevantUser = (user.isAdmin && targetUser) ? targetUser : user;
+                    
+                    if (user.isAdmin && !targetUser) { /* Admin Home */ } 
+                    else {
+                        const mySheets = allSheets.filter(s => s.userId === relevantUser.id);
+                        setSheets(mySheets);
+                        if (!currentSheet && mySheets.length > 0) {
+                            const latest = mySheets.reduce((a, b) => new Date(a.updatedAt) > new Date(b.updatedAt) ? a : b);
+                            setCurrentSheet(latest); setEntries(latest.entries);
+                        } else if (!currentSheet) {
+                            setCurrentSheet({ name: 'ملف جديد', id: 'temp' }); setEntries([]);
+                        }
+                    }
+                });
+                return () => unsub();
+            }, [db, user.id, targetUser]);
+
+            const saveSheet = async (name, data, specificId = null) => {
+                if (!name || name === 'ملف جديد') return false;
+                setSaving(true);
+                const ownerId = (user.isAdmin && targetUser) ? targetUser.id : user.id;
+                const sheetId = specificId || ((currentSheet && currentSheet.id !== 'temp') ? currentSheet.id : generateID());
+                const sheetData = { id: sheetId, userId: ownerId, name: name, entries: data, updatedAt: new Date().toISOString() };
+                try { await db.collection('artifacts').doc(appId).collection('public_data_sheets').doc(sheetId).set(sheetData); 
+                    if (!specificId) setCurrentSheet(sheetData);
+                    notify('تم الحفظ بنجاح'); } 
+                catch (e) { alert("خطأ في الاتصال"); } 
+                finally { setSaving(false); }
+                return true;
+            };
+
+            const handleLogout = async () => {
+                if (entries.length > 0 && currentSheet?.name !== 'ملف جديد') await saveSheet(currentSheet.name, entries);
+                onLogout();
+            };
+
+            const calc = entries.reduce((acc, item, i) => {
+                const prev = i === 0 ? 0 : acc[i-1].balance;
+                const inc = Number(item.inc) || 0;
+                const exp = Number(item.exp) || 0;
+                acc.push({ ...item, balance: prev + inc - exp });
+                return acc;
+            }, []);
+
+            const addEntry = () => {
+                if(!input.desc) return;
+                const newEntries = [...entries, { id: Date.now(), ...input }];
+                setEntries(newEntries);
+                setInput({...input, desc: '', inc: '', exp: ''});
+                if (currentSheet.id !== 'temp') saveSheet(currentSheet.name, newEntries);
+            };
+
+            if (user.isAdmin && !targetUser) {
+                return (
+                    <div className="min-h-screen bg-slate-50 p-8" dir="rtl">
+                        <div className="max-w-6xl mx-auto">
+                            <div className="flex justify-between items-center mb-10 bg-white p-6 rounded-3xl shadow-sm border border-gray-100">
+                                <div><h1 className="text-3xl font-extrabold text-slate-800 flex items-center gap-3"><span className="bg-yellow-400 text-yellow-900 p-2 rounded-xl"><Icons.Admin className="h-8 w-8"/></span> لوحة المشرف</h1><p className="text-slate-500 mt-1 mr-14">إدارة شاملة لجميع المستخدمين</p></div>
+                                <button onClick={onLogout} className="bg-white border-2 border-slate-200 px-5 py-2.5 rounded-xl text-slate-600 hover:bg-red-50 hover:text-red-600 hover:border-red-200 font-bold flex gap-2 transition-all"><Icons.Logout className="h-5 w-5"/> خروج</button>
+                            </div>
+                            <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+                                {allUsers.map(u => (
+                                    <div key={u.id} onClick={() => { setTargetUser(u); setCurrentSheet(null); setEntries([]); }} className="bg-white p-6 rounded-3xl shadow-sm hover:shadow-xl hover:-translate-y-1 cursor-pointer transition border border-slate-100 text-center group">
+                                        <div className={`w-20 h-20 mx-auto ${u.color} rounded-full flex items-center justify-center text-white text-3xl font-bold mb-4 shadow-lg group-hover:scale-110 transition-transform`}>{u.name[0]}</div>
+                                        <h3 className="font-bold text-lg text-slate-800">{u.name}</h3>
+                                        <p className="text-xs text-indigo-500 bg-indigo-50 py-1 px-3 rounded-full inline-block mt-2 font-medium">عرض الملفات</p>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    </div>
+                );
+            }
+
+            return (
+                <div className="min-h-screen bg-gray-50 p-4 md:p-8" dir="rtl">
+                    <div className="max-w-7xl mx-auto bg-white shadow-xl shadow-gray-200/50 rounded-3xl overflow-hidden relative border border-white">
+                        
+                        {user.isAdmin && targetUser && (
+                            <div className="bg-yellow-400 text-yellow-900 px-6 py-3 text-sm font-bold flex justify-between items-center no-print shadow-sm z-20 relative">
+                                <span className="flex items-center gap-2"><Icons.Admin className="h-5 w-5"/> وضع المشرف: {targetUser.name}</span>
+                                <button onClick={() => setTargetUser(null)} className="bg-white/40 px-4 py-1.5 rounded-lg hover:bg-white/70 transition backdrop-blur-sm">العودة للقائمة</button>
+                            </div>
+                        )}
+
+                        <div className={`p-5 text-white flex flex-col md:flex-row justify-between items-center gap-6 no-print transition-colors duration-300 ${user.isAdmin ? 'bg-slate-900' : 'bg-gradient-to-r from-indigo-700 via-purple-700 to-indigo-800'}`}>
+                            <div className="flex items-center gap-4 w-full md:w-auto">
+                                <div className={`w-12 h-12 rounded-2xl ${user.isAdmin ? 'bg-yellow-500 text-yellow-900' : user.color} flex items-center justify-center font-bold text-2xl shadow-lg ring-2 ring-white/20`}>{user.isAdmin ? <Icons.Admin className="h-7 w-7"/> : user.name[0]}</div>
+                                <div className="flex-1">
+                                    <div className="text-[10px] uppercase tracking-wider text-white/60 font-bold mb-0.5">اسم الملف</div>
+                                    <input className="bg-transparent border-b-2 border-white/20 font-bold text-lg outline-none w-full md:w-60 focus:border-white/80 transition-all text-white placeholder-white/40" value={currentSheet?.name || ''} onChange={e => setCurrentSheet({...currentSheet, name: e.target.value})} placeholder="اكتب اسم الملف..."/>
+                                </div>
+                            </div>
+                            <div className="flex items-center gap-3 flex-wrap justify-end w-full md:w-auto">
+                                <button onClick={() => setModal('new')} className="bg-blue-500 hover:bg-blue-400 text-white px-3 py-2 rounded-lg flex items-center gap-2 text-sm font-bold shadow-sm transition-colors border border-blue-400/50"><Icons.Plus className="w-5 h-5"/> ملف جديد</button>
+                                <div className="relative">
+                                    <button onClick={() => setShowMenu(!showMenu)} className="bg-yellow-500 hover:bg-yellow-400 text-yellow-900 px-3 py-2 rounded-lg flex items-center gap-2 text-sm font-bold shadow-sm transition-colors border border-yellow-400/50"><Icons.Folder className="w-5 h-5"/> الملفات المحفوظة</button>
+                                    {showMenu && <div className="absolute top-full left-0 mt-3 w-72 bg-white text-gray-800 rounded-2xl shadow-2xl z-50 max-h-80 overflow-y-auto border border-gray-100 animate-in fade-in zoom-in-95">
+                                        <div className="p-3 text-xs font-bold text-gray-400 border-b bg-gray-50 flex justify-between"><span>أرشيف الملفات</span> <span>{user.isAdmin && targetUser ? targetUser.name : user.name}</span></div>
+                                        {sheets.length === 0 && <div className="p-8 text-sm text-center text-gray-400 flex flex-col items-center gap-3"><div className="bg-gray-100 p-3 rounded-full"><Icons.Folder className="w-6 h-6 opacity-30"/></div>لا توجد ملفات محفوظة</div>}
+                                        {sheets.map(s => (
+                                            <div key={s.id} onClick={() => { setCurrentSheet(s); setEntries(s.entries); setShowMenu(false); }} className="p-4 hover:bg-indigo-50 cursor-pointer border-b last:border-0 text-sm flex justify-between items-center group transition-colors">
+                                                <div className="flex items-center gap-3 font-bold text-gray-700 group-hover:text-indigo-700"><div className="bg-indigo-100 p-1.5 rounded-lg text-indigo-500 group-hover:bg-indigo-200 transition"><Icons.File className="w-4 h-4"/></div>{s.name}</div>
+                                                <span className="text-[10px] text-gray-400 font-mono bg-gray-100 px-2 py-1 rounded-md group-hover:bg-white">{new Date(s.updatedAt).toLocaleDateString('en-GB')}</span>
+                                            </div>
+                                        ))}
+                                    </div>}
+                                </div>
+                                <div className="h-8 w-px bg-white/10 mx-1 hidden md:block"></div>
+                                <button onClick={() => saveSheet(currentSheet?.name, entries)} className="bg-emerald-500 hover:bg-emerald-400 text-white px-5 py-2.5 rounded-xl flex items-center gap-2 text-sm font-bold shadow-lg shadow-emerald-500/20 transition-all">
+                                    {saving ? <span className="animate-pulse flex gap-1 items-center"><div className="w-2 h-2 bg-white rounded-full"></div> جاري الحفظ</span> : <><Icons.Save className="w-5 h-5"/> حفظ</>}
+                                </button>
+                                <button onClick={() => {window.focus(); window.print()}} className="hover:bg-white/10 text-white px-3 py-2.5 rounded-xl transition-all flex items-center gap-2 font-bold"><Icons.Printer className="w-5 h-5"/> حفظ PDF</button>
+                                <button onClick={() => setModal('logout')} className="hover:bg-rose-500/80 hover:text-white text-rose-200 px-3 py-2.5 rounded-xl transition-all"><Icons.Logout className="w-5 h-5"/></button>
+                            </div>
+                        </div>
+
+                        {msg && <div className="absolute top-24 left-1/2 -translate-x-1/2 z-50 bg-emerald-600 text-white px-6 py-3 rounded-full shadow-xl flex items-center gap-3 animate-in slide-in-from-top-4 fade-in duration-300 font-bold"><div className="bg-white/20 p-1 rounded-full"><Icons.Check className="w-4 h-4"/></div> {msg}</div>}
+
+                        <div className="p-6 bg-white border-b no-print shadow-[0_4px_20px_-10px_rgba(0,0,0,0.1)] z-10 relative">
+                            <div className="grid grid-cols-1 md:grid-cols-12 gap-3 items-end">
+                                <div className="md:col-span-2">
+                                    <label className="text-[10px] text-gray-400 font-bold uppercase mr-1">التاريخ</label>
+                                    <input type="date" className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-indigo-100 focus:border-indigo-500 outline-none transition-all font-medium text-gray-700" value={input.date} onChange={e => setInput({...input, date: e.target.value})} />
+                                </div>
+                                <div className="md:col-span-2">
+                                    <label className="text-[10px] text-gray-400 font-bold uppercase mr-1">التصنيف</label>
+                                    <div className="relative">
+                                        <select className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-indigo-100 focus:border-indigo-500 outline-none transition-all appearance-none font-medium text-gray-700" value={input.cat} onChange={e => setInput({...input, cat: e.target.value})}>
+                                            {['عام','طعام','راتب','مواصلات','فواتير','تسوق','ترفيه','صحة','تعليم','أخرى'].map(c=><option key={c} value={c}>{c}</option>)}
+                                        </select>
+                                        <div className="absolute left-3 top-3.5 text-gray-400 pointer-events-none"><Icons.Folder className="w-4 h-4"/></div>
+                                    </div>
+                                </div>
+                                <div className="md:col-span-4">
+                                    <label className="text-[10px] text-gray-400 font-bold uppercase mr-1">البيان</label>
+                                    <input type="text" placeholder="اكتب وصف العملية..." className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-indigo-100 focus:border-indigo-500 outline-none transition-all font-medium" value={input.desc} onChange={e => setInput({...input, desc: e.target.value})} />
+                                </div>
+                                <div className="md:col-span-1">
+                                    <label className="text-[10px] text-emerald-500 font-bold uppercase mr-1">وارد (+)</label>
+                                    <input type="number" placeholder="0" className="w-full p-3 bg-emerald-50/50 border border-emerald-100 rounded-xl focus:bg-white focus:ring-2 focus:ring-emerald-100 focus:border-emerald-500 outline-none transition-all font-bold text-emerald-700 text-center" value={input.inc} onChange={e => setInput({...input, inc: e.target.value})} />
+                                </div>
+                                <div className="md:col-span-1">
+                                    <label className="text-[10px] text-rose-500 font-bold uppercase mr-1">منصرف (-)</label>
+                                    <input type="number" placeholder="0" className="w-full p-3 bg-rose-50/50 border border-rose-100 rounded-xl focus:bg-white focus:ring-2 focus:ring-rose-100 focus:border-rose-500 outline-none transition-all font-bold text-rose-700 text-center" value={input.exp} onChange={e => setInput({...input, exp: e.target.value})} />
+                                </div>
+                                <div className="md:col-span-2">
+                                    <button onClick={addEntry} className="w-full py-3.5 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 font-bold shadow-lg shadow-indigo-200 transition-transform active:scale-95 flex justify-center items-center gap-2"><Icons.Plus className="w-5 h-5"/> إضافة</button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="hidden print-only text-center p-8 border-b-2 border-black"><h1 className="text-4xl font-bold mb-2">{currentSheet?.name}</h1><p>حساب: {user.isAdmin && targetUser ? targetUser.name : user.name} | التاريخ: {new Date().toLocaleDateString()}</p></div>
+
+                        <div className="overflow-x-auto min-h-[400px]">
+                            <table className="w-full text-center text-sm border-collapse">
+                                <thead className="bg-gray-50 text-gray-500 font-bold border-b border-gray-100 sticky top-0">
+                                    <tr><th className="p-4">#</th><th className="p-4 text-right">التاريخ</th><th className="p-4">التصنيف</th><th className="p-4 text-right w-1/3">البيان</th><th className="p-4 text-emerald-600">وارد</th><th className="p-4 text-rose-600">منصرف</th><th className="p-4 text-indigo-600">الرصيد</th><th className="p-4 no-print"></th></tr>
+                                </thead>
+                                <tbody className="divide-y divide-gray-50">
+                                    {entries.length === 0 && <tr><td colSpan="8" className="p-12 text-center text-gray-300 font-medium text-lg">لم يتم إضافة عمليات بعد</td></tr>}
+                                    {calc.map((row, i) => (
+                                        <tr key={row.id} className="hover:bg-blue-50/30 transition-colors group">
+                                            <td className="p-4 text-gray-400 font-mono text-xs">{i + 1}</td>
+                                            <td className="p-4 text-gray-600 font-medium text-right whitespace-nowrap">{row.date}</td>
+                                            <td className="p-4"><span className="bg-white border border-gray-200 px-3 py-1 rounded-lg text-xs text-gray-500 font-medium shadow-sm">{row.cat}</span></td>
+                                            <td className="p-4 text-right font-bold text-gray-800">{row.desc}</td>
+                                            <td className="p-4 text-emerald-600 font-bold font-mono text-base">{row.inc ? Number(row.inc).toLocaleString() : '-'}</td>
+                                            <td className="p-4 text-rose-600 font-bold font-mono text-base">{row.exp ? Number(row.exp).toLocaleString() : '-'}</td>
+                                            <td className="p-4 text-indigo-900 font-black font-mono text-base bg-indigo-50/30 rounded-lg">{row.balance.toLocaleString()}</td>
+                                            <td className="p-4 no-print"><button onClick={() => {const newEntries=entries.filter(e=>e.id!==row.id); setEntries(newEntries); saveSheet(currentSheet.name,newEntries);}} className="p-2 text-gray-300 hover:text-rose-500 hover:bg-rose-50 rounded-lg transition-colors opacity-0 group-hover:opacity-100"><Icons.Trash className="w-4 h-4"/></button></td>
+                                        </tr>
+                                    ))}
+                                    {Array(Math.max(0, 8 - calc.length)).fill(0).map((_, i) => <tr key={`empty-${i}`} className="h-16 print-only border-b border-gray-100"><td colSpan="8"></td></tr>)}
+                                </tbody>
+                                <tfoot className="bg-gray-100 font-bold border-t-2 border-gray-200 text-gray-700">
+                                    <tr><td colSpan="4" className="p-4 text-left pl-8 text-lg">الإجمالي النهائي</td><td className="p-4 text-emerald-600 text-lg">{calc.reduce((a,b)=>a+(Number(b.inc)||0),0).toLocaleString()}</td><td className="p-4 text-rose-600 text-lg">{calc.reduce((a,b)=>a+(Number(b.exp)||0),0).toLocaleString()}</td><td className="p-4 text-indigo-900 text-xl bg-indigo-100/50">{calc.length>0?calc[calc.length-1].balance.toLocaleString():0}</td><td></td></tr>
+                                </tfoot>
+                            </table>
+                        </div>
+                    </div>
+
+                    {modal === 'new' && (
+                        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-in fade-in zoom-in-95 duration-200">
+                            <div className="bg-white p-8 rounded-3xl w-full max-w-sm shadow-2xl relative">
+                                <button onClick={() => setModal(null)} className="absolute left-6 top-6 text-gray-400 hover:text-gray-600"><Icons.X className="w-6 h-6"/></button>
+                                <div className="w-16 h-16 bg-blue-50 rounded-full flex items-center justify-center mb-4 mx-auto text-blue-500"><Icons.File className="w-8 h-8"/></div>
+                                <h3 className="text-2xl font-bold mb-2 text-center text-gray-800">ملف جديد</h3>
+                                <p className="text-gray-500 text-center mb-6 text-sm">سيتم حفظ الملف الحالي تلقائياً</p>
+                                <input autoFocus type="text" placeholder="اسم الملف الجديد (مثلاً: مصاريف 2026)" className="w-full p-4 bg-gray-50 border border-gray-200 rounded-2xl focus:bg-white focus:ring-4 focus:ring-blue-100 outline-none mb-6 text-lg font-medium text-center" value={newSheetName} onChange={e => setNewSheetName(e.target.value)} />
+                                <div className="flex gap-3">
+                                    <button onClick={async () => {
+                                        if (newSheetName) {
+                                            if (currentSheet.name !== 'ملف جديد') await saveSheet(currentSheet.name, entries);
+                                            const newID = generateID();
+                                            await saveSheet(newSheetName, [], newID);
+                                            setCurrentSheet({ name: newSheetName, id: newID });
+                                            setEntries([]); setNewSheetName(''); setModal(null);
+                                        }
+                                    }} className="w-full py-3.5 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700 shadow-lg shadow-blue-200 transition-all">إنشاء الملف</button>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    {modal === 'logout' && (
+                        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-in fade-in zoom-in-95 duration-200">
+                            <div className="bg-white p-8 rounded-3xl w-full max-w-sm text-center shadow-2xl">
+                                <div className="w-16 h-16 bg-rose-50 rounded-full flex items-center justify-center mb-4 mx-auto text-rose-500"><Icons.Logout className="w-8 h-8"/></div>
+                                <h3 className="text-2xl font-bold mb-2 text-gray-800">تسجيل الخروج</h3>
+                                <p className="text-gray-500 mb-8">هل تود حفظ التغييرات قبل المغادرة؟</p>
+                                <div className="flex flex-col gap-3">
+                                    <button onClick={handleLogout} className="py-3.5 bg-indigo-600 text-white rounded-xl font-bold shadow-lg shadow-indigo-200 hover:bg-indigo-700 transition-all">حفظ البيانات والخروج</button>
+                                    <button onClick={onLogout} className="py-3.5 text-rose-600 bg-rose-50 hover:bg-rose-100 rounded-xl font-bold transition-all">خروج دون حفظ</button>
+                                    <button onClick={() => setModal(null)} className="py-2 text-gray-400 text-sm hover:text-gray-600">تراجع</button>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+                </div>
+            );
+        };
+
+        const App = () => {
+            const storage = useStorage();
+            const [user, setUser] = useState(null);
+            
+            if (storage.loading) return <div className="min-h-screen flex items-center justify-center"><div className="loader"></div></div>;
+            if (storage.error) return <div className="min-h-screen flex items-center justify-center text-red-600 font-bold p-4 text-center">{storage.error}</div>;
+
+            if (!user) return <UserSelection storage={storage} onLogin={setUser} />;
+            return <Dashboard user={user} storage={storage} onLogout={() => setUser(null)} />;
+        };
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
