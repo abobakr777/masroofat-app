@@ -30,7 +30,7 @@
             }
         }
     </script>
-    <!-- Google Fonts -->
+    <!-- Google Fonts: Tajawal for better Arabic typography -->
     <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800&display=swap" rel="stylesheet">
 
     <!-- Firebase SDKs -->
@@ -54,28 +54,45 @@
         }
         .loader { border: 4px solid #f3f3f3; border-top: 4px solid #6366f1; border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-        .glass { background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(10px); border: 1px solid rgba(255, 255, 255, 0.2); }
+        
+        /* Glassmorphism utilities */
+        .glass {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
     </style>
 </head>
 <body class="bg-gray-50 text-gray-800">
     <div id="root"></div>
 
     <script type="text/babel">
+        // ====================================================================
+        //  إعدادات قاعدة البيانات
+        // ====================================================================
+        
         const MY_FIREBASE_CONFIG = {
           apiKey: "AIzaSyCQdadpjEYK8zjroLVVRNuW_x-IGSBIpB0",
           authDomain: "malaebapp-d6409.firebaseapp.com",
           projectId: "malaebapp-d6409",
           storageBucket: "malaebapp-d6409.firebasestorage.app",
           messagingSenderId: "267701606872",
-          appId: "1:267701606872:web:72f422d358a7a6d5debaad",
-          measurementId: "G-0Y5EXZ7PR9"
+          appId: "1:267701606872:web:4f9146328c6e2235debaad",
+          measurementId: "G-FSH0X6YB7N"
         };
 
         const ADMIN_PIN_CODE = "97698"; 
 
-        const { useState, useEffect, useRef } = React;
-        const generateID = () => Date.now().toString(36) + Math.random().toString(36).substr(2);
+        // ====================================================================
 
+        const { useState, useEffect, useRef } = React;
+        
+        // --- Safe ID Generator ---
+        const generateID = () => {
+            return Date.now().toString(36) + Math.random().toString(36).substr(2);
+        };
+
+        // --- Firebase Helper ---
         const useStorage = () => {
             const [isCloud, setIsCloud] = useState(false);
             const [db, setDb] = useState(null);
@@ -88,18 +105,27 @@
                     try {
                         let config = MY_FIREBASE_CONFIG;
                         if (!config && typeof __firebase_config !== 'undefined') config = JSON.parse(__firebase_config);
+
                         if (config && typeof firebase !== 'undefined') {
                             if (!firebase.apps.length) firebase.initializeApp(config);
+                            const app = firebase.app();
                             const auth = firebase.auth();
                             const firestore = firebase.firestore();
+
                             if (MY_FIREBASE_CONFIG) await auth.signInAnonymously();
                             else if (typeof __initial_auth_token !== 'undefined') await auth.signInWithCustomToken(__initial_auth_token);
                             else await auth.signInAnonymously();
+
                             setDb(firestore);
                             setAppId(MY_FIREBASE_CONFIG ? 'my-allowance-app' : (typeof __app_id !== 'undefined' ? __app_id : 'default-app'));
                             setIsCloud(true);
-                        } else { throw new Error("تكوين Firebase مفقود"); }
-                    } catch (e) { console.error("Connection Error", e); setError("تعذر الاتصال بالسيرفر."); } 
+                        } else {
+                            throw new Error("تكوين Firebase مفقود");
+                        }
+                    } catch (e) { 
+                        console.error("Connection Error", e); 
+                        setError("تعذر الاتصال بالسيرفر. يرجى التحقق من الإنترنت.");
+                    } 
                     finally { setLoading(false); }
                 };
                 init();
@@ -107,7 +133,9 @@
             return { db, appId, loading, error };
         };
 
+        // --- Icons Definition ---
         const Icon = ({ d, className }) => <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d={d}/></svg>;
+        
         const Icons = {
             Plus: (p) => <Icon d="M5 12h14M12 5v14" {...p} />,
             Trash: (p) => <Icon d="M3 6h18M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2" {...p} />,
@@ -121,14 +149,15 @@
             X: (p) => <Icon d="M18 6L6 18M6 6l12 12" {...p} />,
             Pencil: (p) => <Icon d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" {...p} />,
             User: (p) => <Icon d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2M12 7a4 4 0 100-8 4 4 0 000 8z" {...p} />,
+            Admin: (p) => <Icon d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" {...p} />,
             Search: (p) => <Icon d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" {...p} />,
             Filter: (p) => <Icon d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" {...p} />,
             MoreVertical: (p) => <Icon d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z" {...p} />,
             ArrowUp: (p) => <Icon d="M5 10l7-7m0 0l7 7m-7-7v18" {...p} />,
-            ArrowDown: (p) => <Icon d="M19 14l-7 7m0 0l-7-7m7 7V3" {...p} />,
-            Admin: (p) => <Icon d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" {...p} />
+            ArrowDown: (p) => <Icon d="M19 14l-7 7m0 0l-7-7m7 7V3" {...p} />
         };
 
+        // --- User Selection Screen ---
         const UserSelection = ({ onLogin, storage }) => {
             const [users, setUsers] = useState([]);
             const [loading, setLoading] = useState(true);
@@ -170,11 +199,13 @@
                 setLoading(true);
                 const newId = generateID();
                 const newUser = { id: newId, name: formData.name, color: 'bg-indigo-600', createdAt: new Date().toISOString() };
+                
                 try {
                     await db.collection('artifacts').doc(appId).collection('public_data_users').doc(newUser.id).set(newUser);
                     const updatedMyIds = [...myDeviceUserIds, newId];
                     setMyDeviceUserIds(updatedMyIds);
                     localStorage.setItem('my_device_users', JSON.stringify(updatedMyIds));
+
                     setFormData({ name: '' }); 
                     setView('list');
                 } catch(e) { setError('حدث خطأ أثناء الحفظ بالسيرفر'); } 
@@ -421,7 +452,21 @@
             };
             
             const handleSaveEdit = () => {
-                const updatedEntries = entries.map(e => e.id === editingId ? {...editFormData, inc: Number(editFormData.inc), exp: Number(editFormData.exp)} : e);
+                // Validation for editing
+                const incVal = Number(editFormData.inc) || 0;
+                const expVal = Number(editFormData.exp) || 0;
+
+                if (incVal > 0 && expVal > 0) {
+                    alert("لا يمكن إدخال وارد ومنصرف في نفس الوقت");
+                    return;
+                }
+
+                if (incVal === 0 && expVal === 0) {
+                    alert("يجب إدخال قيمة للوارد أو المنصرف");
+                    return;
+                }
+
+                const updatedEntries = entries.map(e => e.id === editingId ? {...editFormData, inc: incVal, exp: expVal} : e);
                 setEntries(updatedEntries);
                 if(currentSheet.id !== 'temp') saveSheet(currentSheet.name, updatedEntries);
                 setEditingId(null);
@@ -489,8 +534,24 @@
             const isFiltered = searchTerm !== '' || filterCat !== 'الكل';
 
             const addEntry = () => {
-                if(!input.desc) return;
-                const newEntries = [...entries, { id: Date.now(), ...input }];
+                if(!input.desc) { notify("الرجاء إدخال البيان"); return; }
+                
+                const incVal = Number(input.inc) || 0;
+                const expVal = Number(input.exp) || 0;
+
+                // Validation 1: Prevent both income and expense
+                if (incVal > 0 && expVal > 0) {
+                    notify("لا يمكن إدخال وارد ومنصرف في نفس الوقت");
+                    return;
+                }
+
+                // Validation 2: Prevent empty or zero entry for both
+                if (incVal === 0 && expVal === 0) {
+                    notify("يجب إدخال قيمة للوارد أو المنصرف");
+                    return;
+                }
+
+                const newEntries = [...entries, { id: Date.now(), ...input, inc: incVal, exp: expVal }];
                 setEntries(newEntries);
                 setInput({...input, desc: '', notes: '', inc: '', exp: ''});
                 if (currentSheet.id !== 'temp') saveSheet(currentSheet.name, newEntries);
@@ -593,22 +654,12 @@
                             </div>
                         </div>
 
-                        <div className="hidden print-only text-center p-8 border-b-2 border-black"><h1 className="text-4xl font-bold mb-2">{currentSheet?.name}</h1><p>حساب: {user.isAdmin && targetUser ? targetUser.name : user.name}</p></div>
+                        <div className="hidden print-only text-center p-8 border-b-2 border-black"><h1 className="text-4xl font-bold mb-2">{currentSheet?.name}</h1><p>حساب: {user.isAdmin && targetUser ? targetUser.name : user.name} | التاريخ: {new Date().toLocaleDateString()}</p></div>
 
                         <div className="overflow-x-auto min-h-[400px]">
                             <table className="w-full text-center text-sm border-collapse">
                                 <thead className="bg-gray-50 text-gray-500 font-bold border-b border-gray-100 sticky top-0">
-                                    <tr>
-                                        <th className="p-4">#</th>
-                                        <th className="p-4 text-right">التاريخ</th>
-                                        <th className="p-4">التصنيف</th>
-                                        <th className="p-4 text-right w-1/4">البيان</th>
-                                        <th className="p-4 text-emerald-600">وارد</th>
-                                        <th className="p-4 text-rose-600">منصرف</th>
-                                        <th className="p-4 text-indigo-600">الرصيد</th>
-                                        <th className="p-4 text-right w-1/5">ملاحظات</th>
-                                        <th className="p-4 no-print"></th>
-                                    </tr>
+                                    <tr><th className="p-4">#</th><th className="p-4 text-right">التاريخ</th><th className="p-4">التصنيف</th><th className="p-4 text-right w-1/4">البيان</th><th className="p-4 text-emerald-600">وارد</th><th className="p-4 text-rose-600">منصرف</th><th className="p-4 text-indigo-600">الرصيد</th><th className="p-4 text-right w-1/5">ملاحظات</th><th className="p-4 no-print"></th></tr>
                                 </thead>
                                 <tbody className="divide-y divide-gray-50">
                                     {entries.length === 0 && <tr><td colSpan="9" className="p-12 text-center text-gray-300 font-medium text-lg">لم يتم إضافة عمليات بعد</td></tr>}
