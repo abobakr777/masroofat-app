@@ -3,11 +3,23 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>مدير المصروفات - الشخصي</title>
+    <title>مدير المصروفات</title>
     
+    <!-- معالج الأخطاء الفوري -->
+    <script>
+        window.onerror = function(msg, url, line, col, error) {
+            var box = document.getElementById('debug-console');
+            if(box) {
+                box.style.display = 'block';
+                box.innerHTML += '<div style="color:red; border-bottom:1px solid #ccc; padding:5px;">' + msg + ' (Line: ' + line + ')</div>';
+            }
+            return false;
+        };
+    </script>
+
     <!-- React & ReactDOM -->
-    <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
-    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
     
     <!-- Babel -->
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
@@ -15,62 +27,67 @@
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
-        tailwind.config = {
-            theme: {
-                extend: {
-                    colors: {
-                        primary: '#4f46e5',
-                        secondary: '#0ea5e9',
-                        accent: '#8b5cf6',
-                    },
-                    fontFamily: {
-                        sans: ['Tajawal', 'sans-serif'],
+        window.addEventListener('DOMContentLoaded', function() {
+            try {
+                if (typeof tailwind !== 'undefined') {
+                    tailwind.config = {
+                        theme: {
+                            extend: {
+                                colors: { primary: '#4f46e5', secondary: '#0ea5e9', accent: '#8b5cf6' },
+                                fontFamily: { sans: ['Tajawal', 'sans-serif'] }
+                            }
+                        }
                     }
                 }
-            }
-        }
+            } catch(e) { console.warn("Tailwind config failed", e); }
+        });
     </script>
-    <!-- Google Fonts: Tajawal for better Arabic typography -->
-    <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800&display=swap" rel="stylesheet">
 
     <!-- Firebase SDKs -->
     <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
 
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800&display=swap" rel="stylesheet">
+
     <style>
         body { font-family: 'Tajawal', sans-serif; background-color: #f3f4f6; }
+        .loader { border: 4px solid #f3f3f3; border-top: 4px solid #6366f1; border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; margin: 20px auto; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        .glass { background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(10px); border: 1px solid rgba(255, 255, 255, 0.2); }
+        
+        #debug-console {
+            display: none;
+            position: fixed; bottom: 0; left: 0; width: 100%; height: 150px;
+            background: #fff0f0; border-top: 3px solid red; overflow-y: scroll;
+            font-family: monospace; font-size: 12px; padding: 10px; z-index: 9999;
+            direction: ltr; text-align: left;
+        }
+        
         @media print {
-            @page { size: A4; margin: 1cm; }
-            body { -webkit-print-color-adjust: exact; background-color: white !important; }
             .no-print { display: none !important; }
             .print-only { display: block !important; }
+            body { background: white; }
             .shadow-xl, .shadow-lg, .shadow-md { box-shadow: none !important; }
-            .rounded-3xl, .rounded-2xl, .rounded-xl { border-radius: 0 !important; }
-            .bg-gradient-to-r, .bg-gradient-to-br { background: none !important; background-color: #eee !important; }
-            table { width: 100% !important; }
-            .min-h-screen { min-height: 0 !important; background-color: white !important; }
-            .max-w-6xl { max-width: none !important; margin: 0 !important; }
         }
-        .loader { border: 4px solid #f3f3f3; border-top: 4px solid #6366f1; border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; }
-        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-        
-        /* Glassmorphism utilities */
-        .glass {
-            background: rgba(255, 255, 255, 0.95);
-            backdrop-filter: blur(10px);
-            border: 1px solid rgba(255, 255, 255, 0.2);
-        }
+        .print-only { display: none; }
     </style>
 </head>
 <body class="bg-gray-50 text-gray-800">
-    <div id="root"></div>
+    
+    <div id="debug-console"><strong>System Log:</strong><br/></div>
+
+    <div id="root">
+        <div style="text-align: center; padding-top: 100px;">
+            <div class="loader"></div>
+            <h2 style="color: #4b5563; font-size: 1.5rem;">جاري تشغيل النظام...</h2>
+            <p style="color: #9ca3af;">إذا استمر هذا الانتظار طويلاً، تأكد من اتصال الإنترنت.</p>
+        </div>
+    </div>
 
     <script type="text/babel">
-        // ====================================================================
-        //  إعدادات قاعدة البيانات
-        // ====================================================================
-        
+        // --- إعدادات Firebase ---
         const MY_FIREBASE_CONFIG = {
           apiKey: "AIzaSyCQdadpjEYK8zjroLVVRNuW_x-IGSBIpB0",
           authDomain: "malaebapp-d6409.firebaseapp.com",
@@ -80,19 +97,33 @@
           appId: "1:267701606872:web:4f9146328c6e2235debaad",
           measurementId: "G-FSH0X6YB7N"
         };
-
         const ADMIN_PIN_CODE = "97698"; 
 
-        // ====================================================================
+        const { useState, useEffect, useRef, Component } = React;
 
-        const { useState, useEffect, useRef } = React;
-        
-        // --- Safe ID Generator ---
-        const generateID = () => {
-            return Date.now().toString(36) + Math.random().toString(36).substr(2);
-        };
+        class ErrorBoundary extends Component {
+            constructor(props) { super(props); this.state = { hasError: false, error: null }; }
+            static getDerivedStateFromError(error) { return { hasError: true, error }; }
+            componentDidCatch(error, errorInfo) { 
+                console.error("React Error:", error, errorInfo); 
+                const box = document.getElementById('debug-console');
+                if(box) { box.style.display='block'; box.innerHTML += `<div style="color:red">React Crash: ${error.toString()}</div>`; }
+            }
+            render() {
+                if (this.state.hasError) {
+                    return (
+                        <div className="p-10 text-center">
+                            <h1 className="text-2xl text-red-600 font-bold">حدث خطأ في العرض</h1>
+                            <button onClick={() => window.location.reload()} className="mt-4 bg-blue-500 text-white px-4 py-2 rounded">تحديث الصفحة</button>
+                        </div>
+                    );
+                }
+                return this.props.children;
+            }
+        }
 
-        // --- Firebase Helper ---
+        const generateID = () => Date.now().toString(36) + Math.random().toString(36).substr(2);
+
         const useStorage = () => {
             const [isCloud, setIsCloud] = useState(false);
             const [db, setDb] = useState(null);
@@ -104,27 +135,30 @@
                 const init = async () => {
                     try {
                         let config = MY_FIREBASE_CONFIG;
-                        if (!config && typeof __firebase_config !== 'undefined') config = JSON.parse(__firebase_config);
+                        if (!config?.apiKey && typeof __firebase_config !== 'undefined') config = JSON.parse(__firebase_config);
 
-                        if (config && typeof firebase !== 'undefined') {
+                        if (config?.apiKey && typeof firebase !== 'undefined') {
                             if (!firebase.apps.length) firebase.initializeApp(config);
-                            const app = firebase.app();
                             const auth = firebase.auth();
                             const firestore = firebase.firestore();
-
-                            if (MY_FIREBASE_CONFIG) await auth.signInAnonymously();
-                            else if (typeof __initial_auth_token !== 'undefined') await auth.signInWithCustomToken(__initial_auth_token);
-                            else await auth.signInAnonymously();
+                            
+                            try {
+                                if (MY_FIREBASE_CONFIG.apiKey) await auth.signInAnonymously();
+                                else if (typeof __initial_auth_token !== 'undefined') await auth.signInWithCustomToken(__initial_auth_token);
+                                else await auth.signInAnonymously();
+                            } catch (authErr) {
+                                console.error("Auth Error:", authErr);
+                            }
 
                             setDb(firestore);
-                            setAppId(MY_FIREBASE_CONFIG ? 'my-allowance-app' : (typeof __app_id !== 'undefined' ? __app_id : 'default-app'));
+                            setAppId(MY_FIREBASE_CONFIG.apiKey ? 'my-allowance-app' : (typeof __app_id !== 'undefined' ? __app_id : 'default-app'));
                             setIsCloud(true);
                         } else {
-                            throw new Error("تكوين Firebase مفقود");
+                            throw new Error("Firebase SDK not loaded");
                         }
                     } catch (e) { 
-                        console.error("Connection Error", e); 
-                        setError("تعذر الاتصال بالسيرفر. يرجى التحقق من الإنترنت.");
+                        console.error("Setup Error", e); 
+                        setError("خطأ في الاتصال: " + e.message); 
                     } 
                     finally { setLoading(false); }
                 };
@@ -133,9 +167,7 @@
             return { db, appId, loading, error };
         };
 
-        // --- Icons Definition ---
         const Icon = ({ d, className }) => <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d={d}/></svg>;
-        
         const Icons = {
             Plus: (p) => <Icon d="M5 12h14M12 5v14" {...p} />,
             Trash: (p) => <Icon d="M3 6h18M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2" {...p} />,
@@ -149,15 +181,16 @@
             X: (p) => <Icon d="M18 6L6 18M6 6l12 12" {...p} />,
             Pencil: (p) => <Icon d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" {...p} />,
             User: (p) => <Icon d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2M12 7a4 4 0 100-8 4 4 0 000 8z" {...p} />,
-            Admin: (p) => <Icon d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" {...p} />,
             Search: (p) => <Icon d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" {...p} />,
             Filter: (p) => <Icon d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" {...p} />,
             MoreVertical: (p) => <Icon d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z" {...p} />,
             ArrowUp: (p) => <Icon d="M5 10l7-7m0 0l7 7m-7-7v18" {...p} />,
-            ArrowDown: (p) => <Icon d="M19 14l-7 7m0 0l-7-7m7 7V3" {...p} />
+            ArrowDown: (p) => <Icon d="M19 14l-7 7m0 0l-7-7m7 7V3" {...p} />,
+            LockClosed: (p) => <Icon d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" {...p} />,
+            LockOpen: (p) => <Icon d="M8 11V7a4 4 0 118 0m-4 8v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2z" {...p} />,
+            Admin: (p) => <Icon d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" {...p} />
         };
 
-        // --- User Selection Screen ---
         const UserSelection = ({ onLogin, storage }) => {
             const [users, setUsers] = useState([]);
             const [loading, setLoading] = useState(true);
@@ -168,108 +201,94 @@
             const [error, setError] = useState('');
             
             const [myDeviceUserIds, setMyDeviceUserIds] = useState(() => {
-                const saved = localStorage.getItem('my_device_users');
-                return saved ? JSON.parse(saved) : [];
+                try {
+                    const saved = localStorage.getItem('my_device_users');
+                    return saved ? JSON.parse(saved) : [];
+                } catch(e) { return []; }
             });
 
             const { db, appId } = storage;
 
             useEffect(() => {
                 if (db) {
-                    const usersRef = db.collection('artifacts').doc(appId).collection('public_data_users');
-                    const unsub = usersRef.onSnapshot((snapshot) => {
+                    const unsub = db.collection('artifacts').doc(appId).collection('public_data_users').onSnapshot((snapshot) => {
                         const allCloudUsers = snapshot.docs.map(d => d.data());
                         const myUsers = allCloudUsers.filter(u => myDeviceUserIds.includes(u.id));
                         setUsers(myUsers);
                         setLoading(false);
-                        
-                        if (myUsers.length === 0 && view === 'list') {
-                            setView('add');
-                        }
-                    }, (err) => {
-                        console.error("Firebase Error:", err);
-                        setLoading(false);
-                    });
+                        if (myUsers.length === 0 && view === 'list') setView('add');
+                    }, (err) => { console.error("Firebase Error:", err); setLoading(false); });
                     return () => unsub();
                 }
             }, [db, appId, myDeviceUserIds]);
 
             const handleCreateUser = async () => {
-                if (!formData.name) return setError('يرجى إدخال اسم الحساب الرئيسي');
+                if (!formData.name) return setError('الاسم مطلوب');
                 setLoading(true);
-                const newId = generateID();
-                const newUser = { id: newId, name: formData.name, color: 'bg-indigo-600', createdAt: new Date().toISOString() };
-                
+                const newUser = { id: generateID(), name: formData.name, color: 'bg-indigo-600', createdAt: new Date().toISOString() };
                 try {
                     await db.collection('artifacts').doc(appId).collection('public_data_users').doc(newUser.id).set(newUser);
-                    const updatedMyIds = [...myDeviceUserIds, newId];
-                    setMyDeviceUserIds(updatedMyIds);
-                    localStorage.setItem('my_device_users', JSON.stringify(updatedMyIds));
-
-                    setFormData({ name: '' }); 
-                    setView('list');
-                } catch(e) { setError('حدث خطأ أثناء الحفظ بالسيرفر'); } 
-                finally { setLoading(false); }
+                    const updated = [...myDeviceUserIds, newUser.id];
+                    setMyDeviceUserIds(updated);
+                    localStorage.setItem('my_device_users', JSON.stringify(updated));
+                    setFormData({ name: '' }); setView('list');
+                } catch(e) { setError('خطأ في الحفظ'); } finally { setLoading(false); }
             };
 
             const handleEditUser = async () => {
-                if (!formData.name) return setError('يرجى إدخال اسم الحساب الرئيسي');
+                if (!formData.name) return setError('الاسم مطلوب');
                 setLoading(true);
                 try {
-                    const updatedUser = { ...selectedUser, name: formData.name };
-                    await db.collection('artifacts').doc(appId).collection('public_data_users').doc(updatedUser.id).update(updatedUser);
+                    await db.collection('artifacts').doc(appId).collection('public_data_users').doc(selectedUser.id).update({ name: formData.name });
                     setFormData({ name: '' }); setSelectedUser(null); setView('list');
-                } catch(e) { setError('حدث خطأ أثناء التحديث'); } 
-                finally { setLoading(false); }
+                } catch(e) { setError('خطأ في التحديث'); } finally { setLoading(false); }
             };
 
             const handleDeleteUser = async () => {
-                if (!selectedUser) return;
-                if (window.confirm(`هل أنت متأكد من حذف الحساب الرئيسي "${selectedUser.name}"؟ سيتم حذف جميع الملفات بداخله.`)) {
-                    setLoading(true);
-                    try {
-                        await db.collection('artifacts').doc(appId).collection('public_data_users').doc(selectedUser.id).delete();
-                        const updatedMyIds = myDeviceUserIds.filter(id => id !== selectedUser.id);
-                        setMyDeviceUserIds(updatedMyIds);
-                        localStorage.setItem('my_device_users', JSON.stringify(updatedMyIds));
+                if (!selectedUser || !window.confirm('حذف الحساب نهائياً؟')) return;
+                setLoading(true);
+                try {
+                    await db.collection('artifacts').doc(appId).collection('public_data_users').doc(selectedUser.id).delete();
+                    const updated = myDeviceUserIds.filter(id => id !== selectedUser.id);
+                    setMyDeviceUserIds(updated);
+                    localStorage.setItem('my_device_users', JSON.stringify(updated));
+                    
+                    const sheetsSnap = await db.collection('artifacts').doc(appId).collection('public_data_sheets').where('userId', '==', selectedUser.id).get();
+                    const batch = db.batch();
+                    sheetsSnap.forEach(doc => batch.delete(doc.ref));
+                    await batch.commit();
 
-                        const sheetsSnapshot = await db.collection('artifacts').doc(appId).collection('public_data_sheets').get();
-                        const batch = db.batch();
-                        sheetsSnapshot.forEach(doc => { if (doc.data().userId === selectedUser.id) batch.delete(doc.ref); });
-                        await batch.commit();
-
-                        setSelectedUser(null); setFormData({ name: '' }); setView('list');
-                    } catch (e) { setError('حدث خطأ'); } finally { setLoading(false); }
-                }
+                    setSelectedUser(null); setFormData({ name: '' }); setView('list');
+                } catch(e) { setError('خطأ في الحذف'); } finally { setLoading(false); }
             };
 
-            const openEditView = (user, e) => { e.stopPropagation(); setSelectedUser(user); setFormData({ name: user.name }); setView('edit'); setError(''); };
+            const openEditView = (u, e) => { e.stopPropagation(); setSelectedUser(u); setFormData({ name: u.name }); setView('edit'); setError(''); };
             const handleAdminLogin = () => {
                 if (adminPin === ADMIN_PIN_CODE) onLogin({ id: 'admin', name: 'المشرف العام', color: 'bg-gray-800', isAdmin: true });
-                else { setError('رمز المشرف غير صحيح'); setAdminPin(''); }
+                else { setError('الرمز غير صحيح'); setAdminPin(''); }
             };
 
             if (loading) return <div className="min-h-screen flex items-center justify-center bg-gray-50"><div className="loader"></div></div>;
 
             return (
                 <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-blue-50 to-purple-50 flex flex-col items-center justify-center p-4" dir="rtl">
-                    <div className="glass p-10 rounded-[2.5rem] shadow-2xl w-full max-w-4xl relative overflow-hidden transition-all hover:shadow-indigo-200/50">
+                    <div className="glass p-10 rounded-[2.5rem] shadow-2xl w-full max-w-4xl relative overflow-hidden">
                         {view === 'list' && <button onClick={() => { setView('admin'); setError(''); }} className="absolute top-0 left-0 w-24 h-24 z-50 opacity-0 cursor-default"></button>}
                         <div className="text-center mb-12 mt-2">
-                            <h1 className="text-5xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-indigo-600 to-purple-600 mb-3 tracking-tight">نظام المصروفات</h1>
+                            <h1 className="text-5xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-indigo-600 to-purple-600 mb-3">نظام المصروفات</h1>
                             <p className="text-gray-500 text-lg">إدارة ذكية وسهلة لمصروفاتك</p>
                         </div>
                         {view === 'list' && (
                             <div>
                                 <div className="flex justify-between items-end mb-8 border-b pb-4 border-gray-100">
                                     <h2 className="text-2xl font-bold text-gray-700">الحسابات</h2>
-                                    <button onClick={() => { setFormData({ name: '' }); setView('add'); }} className="bg-indigo-600 text-white px-4 py-2 rounded-xl flex items-center gap-2 hover:bg-indigo-700 transition text-sm font-bold shadow-md"><Icons.Plus className="h-4 w-4"/> حساب جديد</button>
+                                    <button onClick={() => { setFormData({ name: '' }); setView('add'); }} className="bg-indigo-600 text-white px-4 py-2 rounded-xl flex items-center gap-2 hover:bg-indigo-700 font-bold shadow-md"><Icons.Plus className="h-4 w-4"/> حساب جديد</button>
                                 </div>
                                 <div className="flex justify-center flex-wrap gap-6">
                                     {users.map(u => (
                                         <div key={u.id} onClick={() => onLogin(u)} className="bg-white p-8 rounded-[2rem] cursor-pointer shadow-lg hover:shadow-2xl border border-gray-100 transition-all group text-center relative w-full sm:w-64 transform hover:-translate-y-2">
-                                            <button onClick={(e) => openEditView(u, e)} className="absolute top-4 left-4 p-2.5 bg-gray-50 hover:bg-indigo-100 text-gray-400 hover:text-indigo-600 rounded-full transition-colors z-20 shadow-sm"><Icons.Pencil className="h-4 w-4" /></button>
-                                            <div className={`w-24 h-24 mx-auto ${u.color || 'bg-indigo-600'} rounded-full flex items-center justify-center text-white text-4xl font-bold mb-6 shadow-xl ring-8 ring-gray-50 group-hover:scale-110 transition-transform duration-300`}>{u.name[0]}</div>
+                                            <button onClick={(e) => openEditView(u, e)} className="absolute top-4 left-4 p-2.5 bg-gray-50 hover:bg-indigo-100 text-gray-400 hover:text-indigo-600 rounded-full z-20 shadow-sm"><Icons.Pencil className="h-4 w-4" /></button>
+                                            <div className={`w-24 h-24 mx-auto ${u.color || 'bg-indigo-600'} rounded-full flex items-center justify-center text-white text-4xl font-bold mb-6 shadow-xl`}>{u.name[0]}</div>
                                             <h3 className="font-bold text-xl text-gray-800 mb-3 truncate">{u.name}</h3>
                                             <div className="inline-flex items-center gap-2 bg-green-50 text-green-600 px-4 py-1.5 rounded-full text-xs font-semibold border border-green-100"><div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div> دخول مباشر</div>
                                         </div>
@@ -279,25 +298,24 @@
                         )}
                         {(view === 'add' || view === 'edit') && (
                             <div className="max-w-md mx-auto py-4">
-                                <h2 className="text-2xl font-bold mb-8 text-center text-gray-800">{view === 'add' ? (users.length === 0 ? 'إعداد الحساب الرئيسي' : 'إعداد الحساب الجديد') : 'تعديل الحساب الرئيسي'}</h2>
+                                <h2 className="text-2xl font-bold mb-8 text-center text-gray-800">{view === 'add' ? (users.length===0 ? 'إعداد الحساب الرئيسي' : 'إعداد الحساب الجديد') : 'تعديل الحساب'}</h2>
                                 <div className="space-y-6">
-                                    <div><label className="block text-sm font-medium text-gray-600 mb-2">اسم الحساب الرئيسي</label><input type="text" placeholder="" className="w-full p-4 border border-gray-200 rounded-2xl focus:ring-4 focus:ring-indigo-100 focus:border-indigo-500 outline-none transition-all text-lg bg-gray-50 focus:bg-white" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} /><p className="text-xs text-gray-400 mt-2 mr-1">هذا هو الاسم الذي سيظهر كعنوان رئيسي لجميع ملفاتك</p></div>
+                                    <div><label className="block text-sm font-medium text-gray-600 mb-2">اسم الحساب</label><input type="text" className="w-full p-4 border border-gray-200 rounded-2xl focus:ring-4 focus:ring-indigo-100 outline-none text-lg" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} /></div>
                                     {error && <p className="text-rose-500 text-sm text-center bg-rose-50 p-2 rounded-lg">{error}</p>}
-                                    {view === 'edit' && <div className="pt-2"><button onClick={handleDeleteUser} className="w-full py-3 text-rose-600 bg-rose-50 hover:bg-rose-100 rounded-2xl font-bold transition-colors border border-rose-200 flex items-center justify-center gap-2"><Icons.Trash className="w-5 h-5"/> حذف الحساب نهائياً</button></div>}
+                                    {view === 'edit' && <div className="pt-2"><button onClick={handleDeleteUser} className="w-full py-3 text-rose-600 bg-rose-50 hover:bg-rose-100 rounded-2xl font-bold border border-rose-200 flex items-center justify-center gap-2"><Icons.Trash className="w-5 h-5"/> حذف الحساب</button></div>}
                                     <div className="flex gap-4 pt-4">
-                                        {(users.length > 0 || view === 'edit') && <button onClick={() => setView('list')} className="flex-1 py-3.5 text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-2xl font-bold transition-colors">إلغاء</button>}
-                                        <button onClick={view === 'add' ? handleCreateUser : handleEditUser} className="flex-1 py-3.5 bg-gradient-to-r from-indigo-600 to-blue-600 text-white rounded-2xl font-bold hover:shadow-lg hover:shadow-indigo-200 transition-all transform hover:-translate-y-0.5">{view === 'add' ? 'حفظ وبدء' : 'حفظ التعديلات'}</button>
+                                        {(users.length > 0 || view === 'edit') && <button onClick={() => setView('list')} className="flex-1 py-3.5 text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-2xl font-bold">إلغاء</button>}
+                                        <button onClick={view === 'add' ? handleCreateUser : handleEditUser} className="flex-1 py-3.5 bg-gradient-to-r from-indigo-600 to-blue-600 text-white rounded-2xl font-bold hover:shadow-lg">{view === 'add' ? 'حفظ وبدء' : 'حفظ التعديلات'}</button>
                                     </div>
                                 </div>
                             </div>
                         )}
                         {view === 'admin' && (
                             <div className="max-w-xs mx-auto text-center py-8">
-                                <div className="w-24 h-24 mx-auto bg-gray-900 rounded-3xl flex items-center justify-center text-yellow-400 text-5xl font-bold mb-6 shadow-2xl rotate-3 hover:rotate-0 transition-transform"><Icons.Admin className="h-12 w-12"/></div>
                                 <h2 className="text-2xl font-bold mb-2 text-gray-800">الوضع الإداري</h2>
                                 <input autoFocus type="password" placeholder="•••••" className="w-full text-center text-4xl tracking-[0.5em] p-4 border-2 border-gray-200 rounded-2xl focus:border-gray-900 outline-none mb-6 font-mono" value={adminPin} onChange={e => setAdminPin(e.target.value)} onKeyDown={e => e.key === 'Enter' && handleAdminLogin()} />
                                 {error && <p className="text-red-500 text-sm mb-4 font-bold">{error}</p>}
-                                <div className="flex flex-col gap-3"><button onClick={handleAdminLogin} className="w-full bg-gray-900 text-white py-3.5 rounded-2xl font-bold shadow-lg hover:bg-black transition-colors">تحقق</button><button onClick={() => setView('list')} className="text-gray-400 hover:text-gray-600 text-sm py-2">إلغاء والعودة</button></div>
+                                <div className="flex flex-col gap-3"><button onClick={handleAdminLogin} className="w-full bg-gray-900 text-white py-3.5 rounded-2xl font-bold shadow-lg">تحقق</button><button onClick={() => setView('list')} className="text-gray-400 hover:text-gray-600 text-sm py-2">إلغاء</button></div>
                             </div>
                         )}
                     </div>
@@ -311,7 +329,6 @@
             const [entries, setEntries] = useState([]);
             const [allUsers, setAllUsers] = useState([]);
             const [targetUser, setTargetUser] = useState(null);
-            const [loading, setLoading] = useState(false);
             const [saving, setSaving] = useState(false);
             const [showMenu, setShowMenu] = useState(false);
             const [modal, setModal] = useState(null); 
@@ -320,192 +337,86 @@
             const [input, setInput] = useState({ date: new Date().toISOString().split('T')[0], cat: 'عام', desc: '', notes: '', inc: '', exp: '' });
             const [searchTerm, setSearchTerm] = useState('');
             const [filterCat, setFilterCat] = useState('الكل');
-            
-            // --- Editing State ---
             const [editingId, setEditingId] = useState(null);
             const [editFormData, setEditFormData] = useState({});
-            const [activeMenuId, setActiveMenuId] = useState(null); // Dropdown menu state
+            const [activeMenuId, setActiveMenuId] = useState(null);
 
             const { db, appId } = storage;
             const notify = (text) => { setMsg(text); setTimeout(() => setMsg(null), 3000); };
-            
-            // Updated categories with "راتب / دخل"
             const categories = ['عام','راتب / دخل','طعام','مواصلات','فواتير','تسوق','ترفيه','صحة','تعليم','أخرى'];
 
-            // Click outside handler for row menus
             useEffect(() => {
-                const handleClickOutside = (event) => {
-                    if (!event.target.closest('.action-menu-container')) {
-                        setActiveMenuId(null);
-                    }
-                };
+                const handleClickOutside = (event) => { if (!event.target.closest('.action-menu-container')) setActiveMenuId(null); };
                 document.addEventListener('mousedown', handleClickOutside);
                 return () => document.removeEventListener('mousedown', handleClickOutside);
             }, []);
 
             useEffect(() => {
-                if (user.isAdmin) db.collection('artifacts').doc(appId).collection('public_data_users').onSnapshot(snap => setAllUsers(snap.docs.map(d => d.data())));
+                if (!db) return;
                 
-                const sheetsRef = db.collection('artifacts').doc(appId).collection('public_data_sheets');
-                const unsub = sheetsRef.onSnapshot((snapshot) => {
-                    const allSheets = snapshot.docs.map(d => d.data());
-                    const relevantUser = (user.isAdmin && targetUser) ? targetUser : user;
-                    
-                    if (user.isAdmin && !targetUser) { /* Admin Home */ } 
-                    else {
-                        const mySheets = allSheets.filter(s => s.userId === relevantUser.id);
-                        setSheets(mySheets);
-                        if (!currentSheet && mySheets.length > 0) {
-                            const latest = mySheets.reduce((a, b) => new Date(a.updatedAt) > new Date(b.updatedAt) ? a : b);
-                            setCurrentSheet(latest); setEntries(latest.entries);
-                        } else if (!currentSheet) {
-                            setCurrentSheet({ name: '', id: 'temp' }); setEntries([]);
-                            // CHANGE HERE: Only show modal if NOT admin
-                            if (!user.isAdmin) {
-                                setModal('new'); 
-                            }
-                        }
+                if (user.isAdmin) {
+                    db.collection('artifacts').doc(appId).collection('public_data_users').onSnapshot(snap => setAllUsers(snap.docs.map(d => d.data())));
+                }
+                
+                const targetId = (user.isAdmin && targetUser) ? targetUser.id : (user.isAdmin ? null : user.id);
+                if (!targetId) return;
+
+                const q = db.collection('artifacts').doc(appId).collection('public_data_sheets').where('userId', '==', targetId);
+                const unsub = q.onSnapshot(snap => {
+                    const mySheets = snap.docs.map(d => d.data());
+                    setSheets(mySheets);
+                    if (!currentSheet && mySheets.length > 0) {
+                        const latest = mySheets.reduce((a, b) => new Date(a.updatedAt) > new Date(b.updatedAt) ? a : b);
+                        setCurrentSheet(latest); setEntries(latest.entries);
+                    } else if (!currentSheet) {
+                        setCurrentSheet({ name: '', id: 'temp' }); setEntries([]); 
+                        if (!user.isAdmin) setModal('new');
                     }
                 });
                 return () => unsub();
-            }, [db, user.id, targetUser]);
+            }, [db, user, targetUser]);
 
-            const saveSheet = async (name, data, specificId = null) => {
+            const saveSheet = async (name, data, specificId = null, locked = null) => {
                 if (!name || name === 'ملف جديد') return false;
                 setSaving(true);
                 const ownerId = (user.isAdmin && targetUser) ? targetUser.id : user.id;
                 const sheetId = specificId || ((currentSheet && currentSheet.id !== 'temp') ? currentSheet.id : generateID());
-                const sheetData = { id: sheetId, userId: ownerId, name: name, entries: data, updatedAt: new Date().toISOString() };
-                try { await db.collection('artifacts').doc(appId).collection('public_data_sheets').doc(sheetId).set(sheetData); 
+                const isLocked = (locked !== null) ? locked : (currentSheet?.isLocked || false);
+                const sheetData = { id: sheetId, userId: ownerId, name: name, entries: data, isLocked: isLocked, updatedAt: new Date().toISOString() };
+                try {
+                    await db.collection('artifacts').doc(appId).collection('public_data_sheets').doc(sheetId).set(sheetData);
                     if (!specificId) setCurrentSheet(sheetData);
-                    notify('تم الحفظ بنجاح'); } 
-                catch (e) { alert("خطأ في الاتصال"); } 
-                finally { setSaving(false); }
+                    notify('تم الحفظ بنجاح');
+                } catch(e) { alert("فشل الحفظ"); } finally { setSaving(false); }
                 return true;
             };
 
-            // --- Delete Sheet Function (Improved) ---
-            const deleteSheet = async (e, sheetId, sheetName) => {
-                // Prevent opening the sheet when delete is clicked
+            const deleteSheet = async (e, id, name) => {
                 e.stopPropagation();
-                
-                if (window.confirm(`هل أنت متأكد من حذف الملف "${sheetName}"؟`)) {
+                if (window.confirm(`حذف الملف "${name}"؟`)) {
                     notify("جاري الحذف...");
                     try {
-                        await db.collection('artifacts').doc(appId).collection('public_data_sheets').doc(sheetId).delete();
-                        
-                        // Check if we deleted the active sheet
-                        if (currentSheet && currentSheet.id === sheetId) {
-                            setCurrentSheet({ name: '', id: 'temp' });
-                            setEntries([]);
-                            // The snapshot listener will update the list, but if list becomes empty, 'new' modal will show
-                            // If other sheets exist, the effect will pick the latest one automatically
+                        await db.collection('artifacts').doc(appId).collection('public_data_sheets').doc(id).delete();
+                        if (currentSheet && currentSheet.id === id) {
+                            setCurrentSheet({ name: '', id: 'temp' }); setEntries([]); setModal('new');
                         }
-                        notify("تم حذف الملف بنجاح");
-                    } catch (err) {
-                        alert("حدث خطأ أثناء الحذف");
-                    }
+                        notify("تم الحذف");
+                    } catch(e) { alert("خطأ في الحذف"); }
                 }
             };
-            
-            // --- Admin Delete User Action ---
-            const handleAdminDeleteUser = async (e, targetUserId, targetUserName) => {
-                e.stopPropagation(); // Prevent entering the user profile
-                if (window.confirm(`هل أنت متأكد من حذف حساب "${targetUserName}" وجميع ملفاته؟ لا يمكن التراجع عن هذا الإجراء.`)) {
-                    setLoading(true);
+
+            const handleAdminDeleteUser = async (e, uid, uname) => {
+                e.stopPropagation();
+                if(window.confirm(`حذف المستخدم "${uname}" نهائياً؟`)) {
                     try {
-                        // 1. Delete User Doc
-                        await db.collection('artifacts').doc(appId).collection('public_data_users').doc(targetUserId).delete();
-                        
-                        // 2. Delete User Sheets
-                        const sheetsSnapshot = await db.collection('artifacts').doc(appId).collection('public_data_sheets').get();
+                        await db.collection('artifacts').doc(appId).collection('public_data_users').doc(uid).delete();
+                        const snaps = await db.collection('artifacts').doc(appId).collection('public_data_sheets').where('userId', '==', uid).get();
                         const batch = db.batch();
-                        sheetsSnapshot.forEach(doc => {
-                            if (doc.data().userId === targetUserId) {
-                                batch.delete(doc.ref);
-                            }
-                        });
+                        snaps.forEach(d => batch.delete(d.ref));
                         await batch.commit();
-                        
-                        notify("تم حذف المستخدم بنجاح");
-                        setTargetUser(null); // Reset target user if selected
-                    } catch (err) {
-                        alert("حدث خطأ أثناء الحذف");
-                        console.error(err);
-                    } finally {
-                        setLoading(false);
-                    }
-                }
-            };
-            
-            // --- Row Actions: Edit, Insert, Delete ---
-            
-            const handleEditClick = (row) => {
-                setEditingId(row.id);
-                setEditFormData(row);
-                setActiveMenuId(null);
-            };
-            
-            const handleCancelEdit = () => {
-                setEditingId(null);
-                setEditFormData({});
-            };
-            
-            const handleSaveEdit = () => {
-                // Validation for editing
-                const incVal = Number(editFormData.inc) || 0;
-                const expVal = Number(editFormData.exp) || 0;
-
-                if (incVal > 0 && expVal > 0) {
-                    alert("لا يمكن إدخال وارد ومنصرف في نفس الوقت");
-                    return;
-                }
-
-                if (incVal === 0 && expVal === 0) {
-                    alert("يجب إدخال قيمة للوارد أو المنصرف");
-                    return;
-                }
-
-                const updatedEntries = entries.map(e => e.id === editingId ? {...editFormData, inc: incVal, exp: expVal} : e);
-                setEntries(updatedEntries);
-                if(currentSheet.id !== 'temp') saveSheet(currentSheet.name, updatedEntries);
-                setEditingId(null);
-                notify('تم تعديل السجل');
-            };
-            
-            const handleInsertRow = (targetId, position) => {
-                const index = entries.findIndex(e => e.id === targetId);
-                if (index === -1) return;
-                
-                const newRow = { 
-                    id: generateID(), 
-                    date: entries[index].date, // Copy date from adjacent row
-                    cat: 'عام', 
-                    desc: '', 
-                    notes: '', 
-                    inc: 0, 
-                    exp: 0 
-                };
-                
-                const newEntries = [...entries];
-                if (position === 'before') newEntries.splice(index, 0, newRow);
-                else newEntries.splice(index + 1, 0, newRow);
-                
-                setEntries(newEntries);
-                if(currentSheet.id !== 'temp') saveSheet(currentSheet.name, newEntries);
-                setActiveMenuId(null);
-                
-                // Auto-start editing the new row
-                setEditingId(newRow.id);
-                setEditFormData(newRow);
-            };
-
-            const handleDeleteRow = (id) => {
-                if(window.confirm('حذف هذا السجل؟')) {
-                    const newEntries = entries.filter(e => e.id !== id);
-                    setEntries(newEntries);
-                    if(currentSheet.id !== 'temp') saveSheet(currentSheet.name, newEntries);
-                    setActiveMenuId(null);
+                        notify("تم حذف المستخدم");
+                        setTargetUser(null);
+                    } catch(e) { alert("خطأ في الحذف"); }
                 }
             };
 
@@ -514,16 +425,30 @@
                 onLogout();
             };
 
-            const filteredEntries = entries.filter(entry => {
-                const matchesSearch = (entry.desc || '').includes(searchTerm) || (entry.notes || '').includes(searchTerm);
-                const matchesCat = filterCat === 'الكل' || entry.cat === filterCat;
-                return matchesSearch && matchesCat;
+            const toggleLock = async () => {
+                if (!currentSheet || currentSheet.id === 'temp') return;
+                await saveSheet(currentSheet.name, entries, null, !currentSheet.isLocked);
+                notify(!currentSheet.isLocked ? "تم قفل الملف" : "تم فتح الملف");
+            };
+
+            const filteredEntries = entries.filter(e => {
+                const matchSearch = (e.desc || '').includes(searchTerm) || (e.notes || '').includes(searchTerm);
+                const matchCat = filterCat === 'الكل' || e.cat === filterCat;
+                return matchSearch && matchCat;
+            });
+            
+            // تعديل الترتيب: من الأقدم للأحدث (تصاعدي)
+            // إذا تشابه التاريخ، يتم الترتيب حسب وقت الإدخال
+            const sortedEntries = [...filteredEntries].sort((a,b) => {
+                const dateA = new Date(a.date);
+                const dateB = new Date(b.date);
+                if (dateA - dateB !== 0) return dateA - dateB; // الأقدم أولاً
+                return a.id - b.id; // ثم حسب وقت الإدخال
             });
 
-            const calc = filteredEntries.reduce((acc, item, i) => {
+            const calc = sortedEntries.reduce((acc, item, i) => {
                 const prev = i === 0 ? 0 : acc[i-1].balance;
-                const inc = Number(item.inc) || 0;
-                const exp = Number(item.exp) || 0;
+                const inc = Number(item.inc) || 0; const exp = Number(item.exp) || 0;
                 acc.push({ ...item, balance: prev + inc - exp });
                 return acc;
             }, []);
@@ -532,29 +457,58 @@
             const totalExp = calc.reduce((a,b)=>a+(Number(b.exp)||0),0);
             const finalBalance = totalInc - totalExp;
             const isFiltered = searchTerm !== '' || filterCat !== 'الكل';
+            const isLocked = currentSheet?.isLocked;
 
+            // CRUD
             const addEntry = () => {
-                if(!input.desc) { notify("الرجاء إدخال البيان"); return; }
-                
-                const incVal = Number(input.inc) || 0;
-                const expVal = Number(input.exp) || 0;
-
-                // Validation 1: Prevent both income and expense
-                if (incVal > 0 && expVal > 0) {
-                    notify("لا يمكن إدخال وارد ومنصرف في نفس الوقت");
-                    return;
-                }
-
-                // Validation 2: Prevent empty or zero entry for both
-                if (incVal === 0 && expVal === 0) {
-                    notify("يجب إدخال قيمة للوارد أو المنصرف");
-                    return;
-                }
-
+                if(currentSheet?.isLocked) return;
+                if(!input.desc) { notify("أدخل البيان"); return; }
+                const incVal = Number(input.inc)||0; const expVal = Number(input.exp)||0;
+                if(incVal>0 && expVal>0) { notify("خطأ: وارد ومنصرف معاً"); return; }
+                if(incVal===0 && expVal===0) { notify("أدخل قيمة"); return; }
                 const newEntries = [...entries, { id: Date.now(), ...input, inc: incVal, exp: expVal }];
                 setEntries(newEntries);
                 setInput({...input, desc: '', notes: '', inc: '', exp: ''});
-                if (currentSheet.id !== 'temp') saveSheet(currentSheet.name, newEntries);
+                if(currentSheet.id !== 'temp') saveSheet(currentSheet.name, newEntries);
+            };
+
+            const handleEditClick = (row) => {
+                setEditingId(row.id);
+                setEditFormData({ ...row });
+            };
+
+            const handleCancelEdit = () => {
+                setEditingId(null);
+                setEditFormData({});
+            };
+            
+            const handleSaveEdit = () => {
+                const incVal = Number(editFormData.inc)||0; const expVal = Number(editFormData.exp)||0;
+                if(incVal>0 && expVal>0) { alert("خطأ: وارد ومنصرف معاً"); return; }
+                if(incVal===0 && expVal===0) { alert("أدخل قيمة"); return; }
+                const updated = entries.map(e => e.id === editingId ? {...editFormData, inc: incVal, exp: expVal} : e);
+                setEntries(updated);
+                if(currentSheet.id !== 'temp') saveSheet(currentSheet.name, updated);
+                setEditingId(null);
+            };
+
+            const handleDeleteRow = (id) => {
+                if(window.confirm('حذف؟')) {
+                    const updated = entries.filter(e => e.id !== id);
+                    setEntries(updated);
+                    if(currentSheet.id !== 'temp') saveSheet(currentSheet.name, updated);
+                    setActiveMenuId(null);
+                }
+            };
+
+            const handleInsertRow = (id, pos) => {
+                 const idx = entries.findIndex(e => e.id === id);
+                 const newRow = { id: generateID(), date: entries[idx].date, cat: 'عام', desc: '', notes: '', inc: 0, exp: 0 };
+                 const updated = [...entries];
+                 pos === 'before' ? updated.splice(idx, 0, newRow) : updated.splice(idx+1, 0, newRow);
+                 setEntries(updated);
+                 if(currentSheet.id !== 'temp') saveSheet(currentSheet.name, updated);
+                 setActiveMenuId(null); setEditingId(newRow.id); setEditFormData(newRow);
             };
 
             if (user.isAdmin && !targetUser) {
@@ -562,23 +516,15 @@
                     <div className="min-h-screen bg-slate-50 p-8" dir="rtl">
                         <div className="max-w-6xl mx-auto">
                             <div className="flex justify-between items-center mb-10 bg-white p-6 rounded-3xl shadow-sm border border-gray-100">
-                                <div><h1 className="text-3xl font-extrabold text-slate-800 flex items-center gap-3"><span className="bg-yellow-400 text-yellow-900 p-2 rounded-xl"><Icons.Admin className="h-8 w-8"/></span> لوحة المشرف</h1><p className="text-slate-500 mt-1 mr-14">إدارة شاملة لجميع المستخدمين</p></div>
-                                <button onClick={onLogout} className="bg-white border-2 border-slate-200 px-5 py-2.5 rounded-xl text-slate-600 hover:bg-red-50 hover:text-red-600 hover:border-red-200 font-bold flex gap-2 transition-all"><Icons.Logout className="h-5 w-5"/> خروج</button>
+                                <div><h1 className="text-3xl font-extrabold text-slate-800 flex items-center gap-3"><span className="bg-yellow-400 text-yellow-900 p-2 rounded-xl"><Icons.Admin className="h-8 w-8"/></span> المشرف العام</h1></div>
+                                <button onClick={onLogout} className="bg-white border-2 px-5 py-2.5 rounded-xl font-bold flex gap-2"><Icons.Logout className="h-5 w-5"/> خروج</button>
                             </div>
                             <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
                                 {allUsers.map(u => (
-                                    <div key={u.id} onClick={() => { setTargetUser(u); setCurrentSheet(null); setEntries([]); }} className="bg-white p-6 rounded-3xl shadow-sm hover:shadow-xl hover:-translate-y-1 cursor-pointer transition border border-slate-100 text-center group relative">
-                                        {/* Admin Delete Button */}
-                                        <button 
-                                            onClick={(e) => handleAdminDeleteUser(e, u.id, u.name)}
-                                            className="absolute top-2 left-2 p-2 text-gray-300 hover:text-red-500 hover:bg-red-50 rounded-full opacity-0 group-hover:opacity-100 transition-all z-10"
-                                            title="حذف المستخدم"
-                                        >
-                                            <Icons.Trash className="h-5 w-5" />
-                                        </button>
-                                        <div className={`w-20 h-20 mx-auto ${u.color || 'bg-indigo-600'} rounded-full flex items-center justify-center text-white text-3xl font-bold mb-4 shadow-lg group-hover:scale-110 transition-transform`}>{u.name[0]}</div>
+                                    <div key={u.id} onClick={() => { setTargetUser(u); setCurrentSheet(null); setEntries([]); }} className="bg-white p-6 rounded-3xl shadow-sm hover:shadow-xl cursor-pointer text-center group relative">
+                                        <button onClick={(e) => handleAdminDeleteUser(e, u.id, u.name)} className="absolute top-2 left-2 p-2 text-gray-300 hover:text-red-500 z-10"><Icons.Trash className="h-5 w-5" /></button>
+                                        <div className={`w-20 h-20 mx-auto ${u.color || 'bg-indigo-600'} rounded-full flex items-center justify-center text-white text-3xl font-bold mb-4 shadow-lg`}>{u.name[0]}</div>
                                         <h3 className="font-bold text-lg text-slate-800">{u.name}</h3>
-                                        <p className="text-xs text-indigo-500 bg-indigo-50 py-1 px-3 rounded-full inline-block mt-2 font-medium">عرض الملفات</p>
                                     </div>
                                 ))}
                             </div>
@@ -589,72 +535,59 @@
 
             return (
                 <div className="min-h-screen bg-gray-50 p-4 md:p-8" dir="rtl">
-                    <div className="max-w-7xl mx-auto bg-white shadow-xl shadow-gray-200/50 rounded-3xl overflow-hidden relative border border-white">
-                        {user.isAdmin && targetUser && (
-                            <div className="bg-yellow-400 text-yellow-900 px-6 py-3 text-sm font-bold flex justify-between items-center no-print shadow-sm z-20 relative">
-                                <span className="flex items-center gap-2"><Icons.Admin className="h-5 w-5"/> وضع المشرف: {targetUser.name}</span>
-                                <button onClick={() => setTargetUser(null)} className="bg-white/40 px-4 py-1.5 rounded-lg hover:bg-white/70 transition backdrop-blur-sm">العودة للقائمة</button>
-                            </div>
-                        )}
-
-                        <div className={`p-5 text-white flex flex-col md:flex-row justify-between items-center gap-6 no-print transition-colors duration-300 ${user.isAdmin ? 'bg-slate-900' : 'bg-gradient-to-r from-indigo-700 via-purple-700 to-indigo-800'}`}>
+                    <div className="max-w-7xl mx-auto bg-white shadow-xl rounded-3xl overflow-hidden border border-white relative">
+                        {user.isAdmin && targetUser && <div className="bg-yellow-400 px-6 py-2 text-sm font-bold flex justify-between items-center no-print"><span>مشرف: {targetUser.name}</span><button onClick={()=>setTargetUser(null)} className="bg-white/40 px-3 py-1 rounded">رجوع</button></div>}
+                        
+                        <div className={`p-5 text-white flex flex-col md:flex-row justify-between items-center gap-6 no-print ${user.isAdmin ? 'bg-slate-900' : 'bg-gradient-to-r from-indigo-700 via-purple-700 to-indigo-800'}`}>
                             <div className="flex items-center gap-4 w-full md:w-auto">
-                                <div className={`w-12 h-12 rounded-2xl ${user.isAdmin ? 'bg-yellow-500 text-yellow-900' : (user.color || 'bg-indigo-600')} flex items-center justify-center font-bold text-2xl shadow-lg ring-2 ring-white/20`}>{user.isAdmin ? <Icons.Admin className="h-7 w-7"/> : user.name[0]}</div>
+                                <div className={`w-12 h-12 rounded-2xl ${user.isAdmin ? 'bg-yellow-500 text-yellow-900' : (user.color || 'bg-indigo-600')} flex items-center justify-center font-bold text-2xl shadow-lg`}>{user.isAdmin ? <Icons.Admin className="h-7 w-7"/> : user.name[0]}</div>
                                 <div className="flex-1">
-                                    <div className="text-[10px] uppercase tracking-wider text-white/60 font-bold mb-0.5">اسم الملف</div>
-                                    <input className="bg-transparent border-b-2 border-white/20 font-bold text-lg outline-none w-full md:w-60 focus:border-white/80 transition-all text-white placeholder-white/40" value={currentSheet?.name || ''} onChange={e => setCurrentSheet({...currentSheet, name: e.target.value})} placeholder="اكتب اسم الملف..."/>
+                                    <div className="text-[10px] text-white/60 font-bold">اسم الملف</div>
+                                    <input className="bg-transparent border-b-2 border-white/20 font-bold text-lg outline-none w-full md:w-60 focus:border-white/80 text-white placeholder-white/40" value={currentSheet?.name || ''} onChange={e => setCurrentSheet({...currentSheet, name: e.target.value})} placeholder="اكتب اسم الملف..." disabled={currentSheet?.isLocked}/>
                                 </div>
                             </div>
-                            <div className="flex items-center gap-3 flex-wrap justify-end w-full md:w-auto">
-                                <button onClick={() => setModal('new')} className="bg-blue-500 hover:bg-blue-400 text-white px-3 py-2 rounded-lg flex items-center gap-2 text-sm font-bold shadow-sm transition-colors border border-blue-400/50"><Icons.Plus className="w-5 h-5"/> ملف جديد</button>
+                            <div className="flex items-center gap-3 flex-wrap justify-end">
+                                <button onClick={() => setModal('new')} className="bg-blue-500 hover:bg-blue-400 text-white px-3 py-2 rounded-lg flex items-center gap-2 text-sm font-bold shadow-sm"><Icons.Plus className="w-5 h-5"/> ملف جديد</button>
                                 <div className="relative">
-                                    <button onClick={() => setShowMenu(!showMenu)} className="bg-yellow-500 hover:bg-yellow-400 text-yellow-900 px-3 py-2 rounded-lg flex items-center gap-2 text-sm font-bold shadow-sm transition-colors border border-yellow-400/50"><Icons.Folder className="w-5 h-5"/> الملفات المحفوظة</button>
-                                    {showMenu && <div className="absolute top-full left-0 mt-3 w-72 bg-white text-gray-800 rounded-2xl shadow-2xl z-50 max-h-80 overflow-y-auto border border-gray-100 animate-in fade-in zoom-in-95">
-                                        <div className="p-3 text-xs font-bold text-gray-400 border-b bg-gray-50 flex justify-between"><span>أرشيف الملفات</span> <span>{user.isAdmin && targetUser ? targetUser.name : user.name}</span></div>
-                                        {sheets.length === 0 && <div className="p-8 text-sm text-center text-gray-400 flex flex-col items-center gap-3"><div className="bg-gray-100 p-3 rounded-full"><Icons.Folder className="w-6 h-6 opacity-30"/></div>لا توجد ملفات محفوظة</div>}
+                                    <button onClick={() => setShowMenu(!showMenu)} className="bg-yellow-500 hover:bg-yellow-400 text-yellow-900 px-3 py-2 rounded-lg flex items-center gap-2 text-sm font-bold shadow-sm"><Icons.Folder className="w-5 h-5"/> الملفات</button>
+                                    {showMenu && <div className="absolute top-full left-0 mt-3 w-72 bg-white text-gray-800 rounded-2xl shadow-2xl z-50 max-h-80 overflow-y-auto border border-gray-100">
+                                        <div className="p-3 text-xs font-bold text-gray-400 border-b bg-gray-50">أرشيف الملفات</div>
+                                        {sheets.length === 0 && <div className="p-8 text-center text-gray-400">لا توجد ملفات</div>}
                                         {sheets.map(s => (
-                                            <div key={s.id} onClick={() => { setCurrentSheet(s); setEntries(s.entries); setShowMenu(false); }} className="p-4 hover:bg-indigo-50 cursor-pointer border-b last:border-0 text-sm flex justify-between items-center group transition-colors">
-                                                <div className="flex items-center gap-3 font-bold text-gray-700 group-hover:text-indigo-700">
-                                                    <div className="bg-indigo-100 p-1.5 rounded-lg text-indigo-500 group-hover:bg-indigo-200 transition"><Icons.File className="w-4 h-4"/></div>
-                                                    <span className="truncate w-28 text-right">{s.name}</span>
-                                                </div>
-                                                <div className="flex items-center gap-2">
-                                                     <span className="text-[10px] text-gray-400 font-mono bg-gray-100 px-2 py-1 rounded-md group-hover:bg-white">{new Date(s.updatedAt).toLocaleDateString('en-GB')}</span>
-                                                     <button onClick={(e) => deleteSheet(e, s.id, s.name)} className="text-gray-300 hover:text-red-500 p-1 rounded hover:bg-red-50 transition-colors"><Icons.Trash className="w-4 h-4"/></button>
-                                                </div>
+                                            <div key={s.id} onClick={() => { setCurrentSheet(s); setEntries(s.entries); setShowMenu(false); }} className="p-4 hover:bg-indigo-50 cursor-pointer border-b flex justify-between items-center group">
+                                                <div className="flex items-center gap-3 font-bold text-gray-700"><Icons.File className="w-4 h-4 text-gray-400"/> <span className="truncate w-28 text-right">{s.name}</span></div>
+                                                <div className="flex items-center gap-2"><span className="text-[10px] text-gray-400 bg-gray-100 px-2 py-1 rounded-md">{new Date(s.updatedAt).toLocaleDateString('en-GB')}</span><button onClick={(e) => deleteSheet(e, s.id, s.name)} className="text-gray-300 hover:text-red-500"><Icons.Trash className="w-4 h-4"/></button></div>
                                             </div>
                                         ))}
                                     </div>}
                                 </div>
                                 <div className="h-8 w-px bg-white/10 mx-1 hidden md:block"></div>
-                                <button onClick={() => saveSheet(currentSheet?.name, entries)} className="bg-emerald-500 hover:bg-emerald-400 text-white px-5 py-2.5 rounded-xl flex items-center gap-2 text-sm font-bold shadow-lg shadow-emerald-500/20 transition-all">
-                                    {saving ? <span className="animate-pulse flex gap-1 items-center"><div className="w-2 h-2 bg-white rounded-full"></div> جاري الحفظ</span> : <><Icons.Save className="w-5 h-5"/> حفظ</>}
-                                </button>
-                                <button onClick={() => {window.focus(); window.print()}} className="hover:bg-white/10 text-white px-3 py-2.5 rounded-xl transition-all flex items-center gap-2 font-bold"><Icons.Printer className="w-5 h-5"/> حفظ PDF</button>
-                                <button onClick={() => setModal('logout')} className="hover:bg-rose-500/80 hover:text-white text-rose-200 px-3 py-2.5 rounded-xl transition-all"><Icons.Logout className="w-5 h-5"/></button>
+                                <button onClick={() => saveSheet(currentSheet?.name, entries)} disabled={currentSheet?.isLocked} className={`${currentSheet?.isLocked ? 'bg-gray-400 cursor-not-allowed' : 'bg-emerald-500 hover:bg-emerald-400'} text-white px-5 py-2.5 rounded-xl flex items-center gap-2 text-sm font-bold shadow-lg`}>{saving ? '...' : <><Icons.Save className="w-5 h-5"/> حفظ</>}</button>
+                                <button onClick={toggleLock} className={`${currentSheet?.isLocked ? 'bg-red-500' : 'hover:bg-white/10'} text-white px-3 py-2.5 rounded-xl transition-all`} title="قفل">{currentSheet?.isLocked ? <Icons.LockClosed className="w-5 h-5"/> : <Icons.LockOpen className="w-5 h-5"/>}</button>
+                                <button onClick={() => {window.focus(); window.print()}} className="hover:bg-white/10 text-white px-3 py-2.5 rounded-xl flex items-center gap-2 font-bold"><Icons.Printer className="w-5 h-5"/> PDF</button>
+                                <button onClick={() => setModal('logout')} className="hover:bg-rose-500/80 hover:text-white text-rose-200 px-3 py-2.5 rounded-xl"><Icons.Logout className="w-5 h-5"/></button>
                             </div>
                         </div>
 
                         {msg && <div className="absolute top-24 left-1/2 -translate-x-1/2 z-50 bg-emerald-600 text-white px-6 py-3 rounded-full shadow-xl flex items-center gap-3 animate-in slide-in-from-top-4 fade-in duration-300 font-bold"><div className="bg-white/20 p-1 rounded-full"><Icons.Check className="w-4 h-4"/></div> {msg}</div>}
 
-                        <div className="p-6 bg-white border-b no-print shadow-[0_4px_20px_-10px_rgba(0,0,0,0.1)] z-10 relative">
+                        <div className="p-6 bg-white border-b no-print shadow-sm z-10 relative">
                              <div className="flex flex-col md:flex-row gap-3 mb-4 pb-4 border-b border-gray-100">
-                                <div className="relative flex-grow"><div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none text-gray-400"><Icons.Search className="w-4 h-4"/></div><input type="text" placeholder="بحث عن مصروف..." className="w-full pr-10 pl-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-100 outline-none text-sm" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} /></div>
+                                <div className="relative flex-grow"><div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none text-gray-400"><Icons.Search className="w-4 h-4"/></div><input type="text" placeholder="بحث..." className="w-full pr-10 pl-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-100 outline-none text-sm" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} /></div>
                                 <div className="relative w-full md:w-48"><div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none text-gray-400"><Icons.Filter className="w-4 h-4"/></div><select className="w-full pr-10 pl-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-100 outline-none text-sm appearance-none" value={filterCat} onChange={(e) => setFilterCat(e.target.value)}><option value="الكل">كل التصنيفات</option>{categories.map(c=><option key={c} value={c}>{c}</option>)}</select></div>
                             </div>
-
-                            <div className="grid grid-cols-1 md:grid-cols-12 gap-3 items-end">
-                                <div className="md:col-span-2"><label className="text-[10px] text-gray-400 font-bold uppercase mr-1">التاريخ</label><input type="date" className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-indigo-100 focus:border-indigo-500 outline-none transition-all font-medium text-gray-700" value={input.date} onChange={e => setInput({...input, date: e.target.value})} /></div>
-                                <div className="md:col-span-2"><label className="text-[10px] text-gray-400 font-bold uppercase mr-1">التصنيف</label><div className="relative"><select className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-indigo-100 focus:border-indigo-500 outline-none transition-all appearance-none font-medium text-gray-700" value={input.cat} onChange={e => setInput({...input, cat: e.target.value})}>{categories.map(c=><option key={c} value={c}>{c}</option>)}</select><div className="absolute left-3 top-3.5 text-gray-400 pointer-events-none"><Icons.Folder className="w-4 h-4"/></div></div></div>
-                                <div className="md:col-span-3"><label className="text-[10px] text-gray-400 font-bold uppercase mr-1">البيان</label><input type="text" placeholder="اكتب وصف العملية..." className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-indigo-100 focus:border-indigo-500 outline-none transition-all font-medium" value={input.desc} onChange={e => setInput({...input, desc: e.target.value})} /></div>
-                                <div className="md:col-span-2"><label className="text-[10px] text-gray-400 font-bold uppercase mr-1">ملاحظات</label><input type="text" placeholder="ملاحظات..." className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-indigo-100 focus:border-indigo-500 outline-none transition-all font-medium" value={input.notes} onChange={e => setInput({...input, notes: e.target.value})} /></div>
-                                <div className="md:col-span-1"><label className="text-[10px] text-emerald-500 font-bold uppercase mr-1">وارد (+)</label><input type="number" placeholder="0" className="w-full p-3 bg-emerald-50/50 border border-emerald-100 rounded-xl focus:bg-white focus:ring-2 focus:ring-emerald-100 focus:border-emerald-500 outline-none transition-all font-bold text-emerald-700 text-center" value={input.inc} onChange={e => setInput({...input, inc: e.target.value})} /></div>
-                                <div className="md:col-span-1"><label className="text-[10px] text-rose-500 font-bold uppercase mr-1">منصرف (-)</label><input type="number" placeholder="0" className="w-full p-3 bg-rose-50/50 border border-rose-100 rounded-xl focus:bg-white focus:ring-2 focus:ring-rose-100 focus:border-rose-500 outline-none transition-all font-bold text-rose-700 text-center" value={input.exp} onChange={e => setInput({...input, exp: e.target.value})} /></div>
-                                <div className="md:col-span-1"><button onClick={addEntry} className="w-full py-3.5 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 font-bold shadow-lg shadow-indigo-200 transition-transform active:scale-95 flex justify-center items-center gap-2"><Icons.Plus className="w-5 h-5"/></button></div>
+                            <div className={`grid grid-cols-1 md:grid-cols-12 gap-3 items-end transition-opacity ${currentSheet?.isLocked ? 'opacity-50 pointer-events-none' : ''}`}>
+                                <div className="md:col-span-2"><label className="text-[10px] text-gray-400 font-bold">التاريخ</label><input type="date" disabled={currentSheet?.isLocked} className="w-full p-3 bg-gray-50 border rounded-xl" value={input.date} onChange={e => setInput({...input, date: e.target.value})} /></div>
+                                <div className="md:col-span-2"><label className="text-[10px] text-gray-400 font-bold">التصنيف</label><select disabled={currentSheet?.isLocked} className="w-full p-3 bg-gray-50 border rounded-xl" value={input.cat} onChange={e => setInput({...input, cat: e.target.value})}>{categories.map(c=><option key={c} value={c}>{c}</option>)}</select></div>
+                                <div className="md:col-span-3"><label className="text-[10px] text-gray-400 font-bold">البيان</label><input type="text" disabled={currentSheet?.isLocked} placeholder="وصف..." className="w-full p-3 bg-gray-50 border rounded-xl" value={input.desc} onChange={e => setInput({...input, desc: e.target.value})} /></div>
+                                <div className="md:col-span-2"><label className="text-[10px] text-gray-400 font-bold">ملاحظات</label><input type="text" disabled={currentSheet?.isLocked} placeholder="..." className="w-full p-3 bg-gray-50 border rounded-xl" value={input.notes} onChange={e => setInput({...input, notes: e.target.value})} /></div>
+                                <div className="md:col-span-1"><label className="text-[10px] text-emerald-500 font-bold">وارد</label><input type="number" disabled={currentSheet?.isLocked} placeholder="0" className="w-full p-3 bg-emerald-50/50 border border-emerald-100 rounded-xl font-bold text-center" value={input.inc} onChange={e => setInput({...input, inc: e.target.value})} /></div>
+                                <div className="md:col-span-1"><label className="text-[10px] text-rose-500 font-bold">منصرف</label><input type="number" disabled={currentSheet?.isLocked} placeholder="0" className="w-full p-3 bg-rose-50/50 border border-rose-100 rounded-xl font-bold text-center" value={input.exp} onChange={e => setInput({...input, exp: e.target.value})} /></div>
+                                <div className="md:col-span-1"><button onClick={addEntry} disabled={currentSheet?.isLocked} className="w-full py-3.5 bg-indigo-600 text-white rounded-xl font-bold shadow-lg flex justify-center items-center"><Icons.Plus className="w-5 h-5"/></button></div>
                             </div>
                         </div>
 
-                        <div className="hidden print-only text-center p-8 border-b-2 border-black"><h1 className="text-4xl font-bold mb-2">{currentSheet?.name}</h1><p>حساب: {user.isAdmin && targetUser ? targetUser.name : user.name} | التاريخ: {new Date().toLocaleDateString()}</p></div>
+                        <div className="hidden print-only text-center p-8 border-b-2 border-black"><h1 className="text-4xl font-bold mb-2">{currentSheet?.name}</h1><p>حساب: {user.isAdmin && targetUser ? targetUser.name : user.name}</p></div>
 
                         <div className="overflow-x-auto min-h-[400px]">
                             <table className="w-full text-center text-sm border-collapse">
@@ -662,60 +595,56 @@
                                     <tr><th className="p-4">#</th><th className="p-4 text-right">التاريخ</th><th className="p-4">التصنيف</th><th className="p-4 text-right w-1/4">البيان</th><th className="p-4 text-emerald-600">وارد</th><th className="p-4 text-rose-600">منصرف</th><th className="p-4 text-indigo-600">الرصيد</th><th className="p-4 text-right w-1/5">ملاحظات</th><th className="p-4 no-print"></th></tr>
                                 </thead>
                                 <tbody className="divide-y divide-gray-50">
-                                    {entries.length === 0 && <tr><td colSpan="9" className="p-12 text-center text-gray-300 font-medium text-lg">لم يتم إضافة عمليات بعد</td></tr>}
+                                    {entries.length === 0 && <tr><td colSpan="9" className="p-12 text-center text-gray-300">لم يتم إضافة عمليات</td></tr>}
                                     {calc.map((row, i) => (
-                                        <tr key={row.id} className="hover:bg-blue-50/30 transition-colors group">
+                                        <tr key={row.id} className="hover:bg-blue-50/30 transition-colors">
                                             <td className="p-4 text-gray-400 font-mono text-xs">{i + 1}</td>
-                                            
                                             {editingId === row.id ? (
                                                 <>
-                                                    <td className="p-2"><input type="date" value={editFormData.date} onChange={(e)=>setEditFormData({...editFormData,date:e.target.value})} className="w-full p-1 border rounded"/></td>
-                                                    <td className="p-2"><select value={editFormData.cat} onChange={(e)=>setEditFormData({...editFormData,cat:e.target.value})} className="w-full p-1 border rounded">{categories.map(c=><option key={c} value={c}>{c}</option>)}</select></td>
-                                                    <td className="p-2"><input type="text" value={editFormData.desc} onChange={(e)=>setEditFormData({...editFormData,desc:e.target.value})} className="w-full p-1 border rounded"/></td>
-                                                    <td className="p-2"><input type="number" value={editFormData.inc} onChange={(e)=>setEditFormData({...editFormData,inc:e.target.value})} className="w-full p-1 border rounded text-center"/></td>
-                                                    <td className="p-2"><input type="number" value={editFormData.exp} onChange={(e)=>setEditFormData({...editFormData,exp:e.target.value})} className="w-full p-1 border rounded text-center"/></td>
-                                                    <td className="p-4 text-gray-400">-</td>
-                                                    <td className="p-2"><input type="text" value={editFormData.notes} onChange={(e)=>setEditFormData({...editFormData,notes:e.target.value})} className="w-full p-1 border rounded"/></td>
-                                                    <td className="p-2 no-print flex gap-1 justify-center">
-                                                        <button onClick={handleSaveEdit} className="p-1 bg-green-100 text-green-600 rounded"><Icons.Check className="w-4 h-4"/></button>
-                                                        <button onClick={handleCancelEdit} className="p-1 bg-red-100 text-red-600 rounded"><Icons.X className="w-4 h-4"/></button>
-                                                    </td>
+                                                    <td className="p-2"><input type="date" value={editFormData.date} onChange={e=>setEditFormData({...editFormData,date:e.target.value})} className="w-full p-1 border rounded"/></td>
+                                                    <td className="p-2"><select value={editFormData.cat} onChange={e=>setEditFormData({...editFormData,cat:e.target.value})} className="w-full p-1 border rounded">{categories.map(c=><option key={c} value={c}>{c}</option>)}</select></td>
+                                                    <td className="p-2"><input type="text" value={editFormData.desc} onChange={e=>setEditFormData({...editFormData,desc:e.target.value})} className="w-full p-1 border rounded"/></td>
+                                                    <td className="p-2"><input type="number" value={editFormData.inc} onChange={e=>setEditFormData({...editFormData,inc:e.target.value})} className="w-full p-1 border rounded text-center"/></td>
+                                                    <td className="p-2"><input type="number" value={editFormData.exp} onChange={e=>setEditFormData({...editFormData,exp:e.target.value})} className="w-full p-1 border rounded text-center"/></td>
+                                                    <td className="p-4">-</td>
+                                                    <td className="p-2"><input type="text" value={editFormData.notes} onChange={e=>setEditFormData({...editFormData,notes:e.target.value})} className="w-full p-1 border rounded"/></td>
+                                                    <td className="p-2 no-print flex gap-1 justify-center"><button onClick={handleSaveEdit} className="p-1 bg-green-100 text-green-600 rounded"><Icons.Check className="w-4 h-4"/></button><button onClick={handleCancelEdit} className="p-1 bg-red-100 text-red-600 rounded"><Icons.X className="w-4 h-4"/></button></td>
                                                 </>
                                             ) : (
                                                 <>
-                                                    <td className="p-4 text-gray-600 font-medium text-right whitespace-nowrap">{row.date}</td>
-                                                    <td className="p-4"><span className="bg-white border border-gray-200 px-3 py-1 rounded-lg text-xs text-gray-500 font-medium shadow-sm">{row.cat}</span></td>
+                                                    <td className="p-4 text-gray-600 text-right whitespace-nowrap">{row.date}</td>
+                                                    <td className="p-4"><span className="bg-white border px-3 py-1 rounded-lg text-xs text-gray-500">{row.cat}</span></td>
                                                     <td className="p-4 text-right font-bold text-gray-800">{row.desc}</td>
-                                                    <td className="p-4 text-emerald-600 font-bold font-mono text-base">{row.inc ? Number(row.inc).toLocaleString() : '-'}</td>
-                                                    <td className="p-4 text-rose-600 font-bold font-mono text-base">{row.exp ? Number(row.exp).toLocaleString() : '-'}</td>
-                                                    <td className="p-4 text-indigo-900 font-black font-mono text-base bg-indigo-50/30 rounded-lg">{row.balance.toLocaleString()}</td>
-                                                    <td className="p-4 text-right text-gray-600 text-xs border-r border-gray-100">{row.notes}</td>
+                                                    <td className="p-4 text-emerald-600 font-bold">{row.inc ? Number(row.inc).toLocaleString() : '-'}</td>
+                                                    <td className="p-4 text-rose-600 font-bold">{row.exp ? Number(row.exp).toLocaleString() : '-'}</td>
+                                                    <td className="p-4 text-indigo-900 font-black bg-indigo-50/30 rounded-lg">{row.balance.toLocaleString()}</td>
+                                                    <td className="p-4 text-right text-gray-600 text-xs border-r">{row.notes}</td>
                                                     <td className="p-4 no-print relative">
-                                                        <div className="flex justify-center items-center gap-2">
-                                                            <button onClick={() => handleEditClick(row)} className="p-2 text-gray-300 hover:text-indigo-500 hover:bg-indigo-50 rounded-lg transition-colors"><Icons.Pencil className="w-4 h-4"/></button>
-                                                            
-                                                            <div className="relative action-menu-container">
-                                                                <button onClick={() => setActiveMenuId(activeMenuId === row.id ? null : row.id)} className="p-2 text-gray-300 hover:text-gray-600 hover:bg-gray-50 rounded-lg transition-colors"><Icons.MoreVertical className="w-4 h-4"/></button>
-                                                                {activeMenuId === row.id && (
-                                                                    <div className="absolute top-full left-0 mt-1 w-48 bg-white rounded-xl shadow-xl border border-gray-100 z-50 overflow-hidden animate-in fade-in zoom-in-95">
-                                                                        <button onClick={() => handleInsertRow(row.id, 'before')} className="w-full px-4 py-3 text-sm hover:bg-gray-50 flex gap-3 text-gray-600 text-right"><Icons.ArrowUp className="w-4 h-4 text-indigo-500"/> إضافة سطر للأعلى</button>
-                                                                        <button onClick={() => handleInsertRow(row.id, 'after')} className="w-full px-4 py-3 text-sm hover:bg-gray-50 flex gap-3 text-gray-600 text-right"><Icons.ArrowDown className="w-4 h-4 text-indigo-500"/> إضافة سطر للأسفل</button>
-                                                                        <div className="border-t border-gray-100 my-1"></div>
-                                                                        <button onClick={() => handleDeleteRow(row.id)} className="w-full px-4 py-3 text-sm hover:bg-red-50 flex gap-3 text-red-600 text-right"><Icons.Trash className="w-4 h-4"/> حذف السجل</button>
-                                                                    </div>
-                                                                )}
+                                                        {!currentSheet?.isLocked && (
+                                                            <div className="flex justify-center items-center gap-2">
+                                                                <button onClick={() => handleEditClick(row)} className="p-2 text-gray-300 hover:text-indigo-500"><Icons.Pencil className="w-4 h-4"/></button>
+                                                                <div className="relative action-menu-container">
+                                                                    <button onClick={() => setActiveMenuId(activeMenuId === row.id ? null : row.id)} className="p-2 text-gray-300 hover:text-gray-600"><Icons.MoreVertical className="w-4 h-4"/></button>
+                                                                    {activeMenuId === row.id && (
+                                                                        <div className="absolute top-full left-0 mt-1 w-48 bg-white rounded-xl shadow-xl border z-50">
+                                                                            <button onClick={() => handleInsertRow(row.id, 'before')} className="w-full px-4 py-3 text-sm hover:bg-gray-50 flex gap-3"><Icons.ArrowUp className="w-4 h-4"/> سطر للأعلى</button>
+                                                                            <button onClick={() => handleInsertRow(row.id, 'after')} className="w-full px-4 py-3 text-sm hover:bg-gray-50 flex gap-3"><Icons.ArrowDown className="w-4 h-4"/> سطر للأسفل</button>
+                                                                            <button onClick={() => handleDeleteRow(row.id)} className="w-full px-4 py-3 text-sm hover:bg-red-50 flex gap-3 text-red-600"><Icons.Trash className="w-4 h-4"/> حذف</button>
+                                                                        </div>
+                                                                    )}
+                                                                </div>
                                                             </div>
-                                                        </div>
+                                                        )}
+                                                        {currentSheet?.isLocked && <span className="text-gray-300"><Icons.LockClosed className="w-4 h-4 mx-auto"/></span>}
                                                     </td>
                                                 </>
                                             )}
                                         </tr>
                                     ))}
-                                    {Array(Math.max(0, 8 - calc.length)).fill(0).map((_, i) => <tr key={`empty-${i}`} className="h-16 print-only border-b border-gray-100"><td colSpan="9"></td></tr>)}
                                 </tbody>
                                 <tfoot className="bg-gray-100 font-bold border-t-2 border-gray-200 text-gray-700">
                                     <tr>
-                                        <td colSpan="4" className="p-4 text-left pl-8 text-lg">{isFiltered ? 'إجمالي النتائج المعروضة' : 'الإجمالي النهائي'}</td>
+                                        <td colSpan="4" className="p-4 text-left pl-8 text-lg">{isFiltered ? 'إجمالي المعروض' : 'الإجمالي النهائي'}</td>
                                         <td className="p-4 text-emerald-600 text-lg">{totalInc.toLocaleString()}</td>
                                         <td className="p-4 text-rose-600 text-lg">{totalExp.toLocaleString()}</td>
                                         <td className="p-4 text-indigo-900 text-xl bg-indigo-100/50">{finalBalance.toLocaleString()}</td>
@@ -727,49 +656,36 @@
                     </div>
 
                     {modal === 'new' && (
-                        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-in fade-in zoom-in-95 duration-200">
+                        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4">
                             <div className="bg-white p-8 rounded-3xl w-full max-w-sm shadow-2xl relative">
-                                <div className="w-16 h-16 bg-blue-50 rounded-full flex items-center justify-center mb-4 mx-auto text-blue-500"><Icons.File className="w-8 h-8"/></div>
-                                <h3 className="text-2xl font-bold mb-2 text-center text-gray-800">
-                                    {sheets.length === 0 ? "أنشئ ملفك الأول" : "ملف جديد"}
-                                </h3>
-                                <p className="text-gray-500 text-center mb-6 text-sm">
-                                    {sheets.length === 0 ? "يجب تسمية الملف الأول للبدء في استخدام النظام" : "سيتم حفظ الملف الحالي تلقائياً"}
-                                </p>
-                                <input autoFocus type="text" placeholder="اسم الملف الجديد (مثلاً: مصاريف 2026)" className="w-full p-4 bg-gray-50 border border-gray-200 rounded-2xl focus:bg-white focus:ring-4 focus:ring-blue-100 outline-none mb-6 text-lg font-medium text-center" value={newSheetName} onChange={e => setNewSheetName(e.target.value)} />
+                                <h3 className="text-2xl font-bold mb-2 text-center text-gray-800">{sheets.length===0 ? "أنشئ ملفك الأول" : "ملف جديد"}</h3>
+                                <input autoFocus type="text" placeholder="اسم الملف الجديد" className="w-full p-4 bg-gray-50 border rounded-2xl mb-6 text-center" value={newSheetName} onChange={e => setNewSheetName(e.target.value)} />
                                 <div className="flex gap-3">
-                                    {sheets.length > 0 && (
-                                        <button onClick={() => setModal(null)} className="flex-1 py-3.5 text-gray-600 bg-gray-100 rounded-xl font-bold hover:bg-gray-200 transition-all">إلغاء</button>
-                                    )}
+                                    {sheets.length > 0 && <button onClick={() => setModal(null)} className="flex-1 py-3.5 text-gray-600 bg-gray-100 rounded-xl font-bold">إلغاء</button>}
                                     <button onClick={async () => {
                                         if (newSheetName) {
-                                            if (currentSheet.name && currentSheet.name !== 'ملف جديد') await saveSheet(currentSheet.name, entries);
+                                            if (currentSheet?.name && currentSheet.name !== 'ملف جديد') await saveSheet(currentSheet.name, entries);
                                             const newID = generateID();
                                             await saveSheet(newSheetName, [], newID);
                                             setCurrentSheet({ name: newSheetName, id: newID });
                                             setEntries([]); setNewSheetName(''); setModal(null);
                                         }
-                                    }} className="flex-1 py-3.5 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700 shadow-lg shadow-blue-200 transition-all">
-                                        {sheets.length === 0 ? "بدء الاستخدام" : "إنشاء الملف"}
-                                    </button>
+                                    }} className="flex-1 py-3.5 bg-blue-600 text-white rounded-xl font-bold">{sheets.length===0 ? "بدء" : "إنشاء"}</button>
                                 </div>
-                                {sheets.length === 0 && (
-                                    <button onClick={onLogout} className="mt-4 text-red-400 text-sm hover:text-red-600 underline block w-full text-center">تسجيل خروج</button>
-                                )}
+                                {sheets.length === 0 && <button onClick={onLogout} className="mt-4 text-red-400 text-sm hover:text-red-600 underline block w-full text-center">خروج</button>}
                             </div>
                         </div>
                     )}
-
+                    
                     {modal === 'logout' && (
-                        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-in fade-in zoom-in-95 duration-200">
+                        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4">
                             <div className="bg-white p-8 rounded-3xl w-full max-w-sm text-center shadow-2xl">
-                                <div className="w-16 h-16 bg-rose-50 rounded-full flex items-center justify-center mb-4 mx-auto text-rose-500"><Icons.Logout className="w-8 h-8"/></div>
-                                <h3 className="text-2xl font-bold mb-2 text-gray-800">تسجيل الخروج</h3>
-                                <p className="text-gray-500 mb-8">هل تود حفظ التغييرات قبل المغادرة؟</p>
+                                <h3 className="text-2xl font-bold mb-2">تسجيل الخروج</h3>
+                                <p className="text-gray-500 mb-8">حفظ التغييرات؟</p>
                                 <div className="flex flex-col gap-3">
-                                    <button onClick={handleLogout} className="py-3.5 bg-indigo-600 text-white rounded-xl font-bold shadow-lg shadow-indigo-200 hover:bg-indigo-700 transition-all">حفظ البيانات والخروج</button>
-                                    <button onClick={onLogout} className="py-3.5 text-rose-600 bg-rose-50 hover:bg-rose-100 rounded-xl font-bold transition-all">خروج دون حفظ</button>
-                                    <button onClick={() => setModal(null)} className="py-2 text-gray-400 text-sm hover:text-gray-600">تراجع</button>
+                                    <button onClick={handleLogout} className="py-3.5 bg-indigo-600 text-white rounded-xl font-bold">حفظ وخروج</button>
+                                    <button onClick={onLogout} className="py-3.5 text-rose-600 bg-rose-50 hover:bg-rose-100 rounded-xl font-bold">خروج دون حفظ</button>
+                                    <button onClick={() => setModal(null)} className="py-2 text-gray-400 text-sm">تراجع</button>
                                 </div>
                             </div>
                         </div>
@@ -781,12 +697,8 @@
         const App = () => {
             const storage = useStorage();
             const [user, setUser] = useState(null);
-            
             if (storage.loading) return <div className="min-h-screen flex items-center justify-center"><div className="loader"></div></div>;
-            if (storage.error) return <div className="min-h-screen flex items-center justify-center text-red-600 font-bold p-4 text-center">{storage.error}</div>;
-
-            if (!user) return <UserSelection storage={storage} onLogin={setUser} />;
-            return <Dashboard user={user} storage={storage} onLogout={() => setUser(null)} />;
+            return <ErrorBoundary>{!user ? <UserSelection storage={storage} onLogin={setUser} /> : <Dashboard user={user} storage={storage} onLogout={() => setUser(null)} />}</ErrorBoundary>;
         };
 
         const root = ReactDOM.createRoot(document.getElementById('root'));
