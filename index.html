@@ -350,7 +350,6 @@
             return (
                 <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-blue-50 to-purple-50 flex flex-col items-center justify-center p-4" dir="rtl">
                     <div className="glass p-10 rounded-[2.5rem] shadow-2xl w-full max-w-4xl relative overflow-hidden">
-                        {/* تعديل: الزر المخفي يعمل الآن في جميع الشاشات (قائمة، إضافة، تعديل) ما عدا شاشة الأدمن نفسها */}
                         {view !== 'admin' && <button onClick={() => { setView('admin'); setError(''); }} className="absolute top-0 left-0 w-24 h-24 z-50 opacity-0 cursor-default" title="دخول المشرف (مخفي)"></button>}
 
                         <div className="text-center mb-12 mt-2">
@@ -369,10 +368,8 @@
                                 <div className="flex justify-center flex-wrap gap-6">
                                     {users.map(u => (
                                         <div key={u.id} onClick={() => onLogin(u)} className="bg-white p-8 rounded-[2rem] cursor-pointer shadow-lg hover:shadow-2xl border border-gray-100 transition-all group text-center relative w-full sm:w-64 transform hover:-translate-y-2">
-                                            {/* زر التعديل */}
                                             <button onClick={(e) => openEditView(u, e)} className="absolute top-4 left-4 p-2.5 bg-gray-50 hover:bg-indigo-100 text-gray-400 hover:text-indigo-600 rounded-full z-20 shadow-sm"><Icons.Pencil className="h-4 w-4" /></button>
                                             
-                                            {/* زر نسخ الكود (المفتاح) */}
                                             <button onClick={(e) => handleCopyAccessCode(e, u.id)} className="absolute top-4 right-4 p-2.5 bg-yellow-50 hover:bg-yellow-100 text-yellow-600 rounded-full z-20 shadow-sm" title="نسخ كود الوصول لهذا الحساب"><Icons.Key className="h-4 w-4" /></button>
 
                                             <div className={`w-24 h-24 mx-auto ${u.color || 'bg-indigo-600'} rounded-full flex items-center justify-center text-white text-4xl font-bold mb-6 shadow-xl`}>{u.name[0]}</div>
@@ -395,7 +392,6 @@
                                         <button onClick={view === 'add' ? handleCreateUser : handleEditUser} className="flex-1 py-3.5 bg-gradient-to-r from-indigo-600 to-blue-600 text-white rounded-2xl font-bold hover:shadow-lg">{view === 'add' ? 'حفظ وبدء' : 'حفظ التعديلات'}</button>
                                     </div>
                                     
-                                    {/* زر الاستعادة في حالة عدم وجود حسابات */}
                                     {view === 'add' && users.length === 0 && (
                                         <div className="mt-6 pt-6 border-t border-gray-100 text-center">
                                             <p className="text-gray-400 text-sm mb-3">هل لديك حساب سابق على جهاز آخر؟</p>
@@ -429,7 +425,8 @@
             const [modal, setModal] = useState(null); 
             const [newSheetName, setNewSheetName] = useState('');
             const [msg, setMsg] = useState(null);
-            const [input, setInput] = useState({ date: new Date().toISOString().split('T')[0], cat: 'عام', desc: '', notes: '', inc: '', exp: '' });
+            // تم تحديث حالة الإدخال لتشمل المبلغ والنوع بدلاً من الحقول المنفصلة
+            const [input, setInput] = useState({ date: new Date().toISOString().split('T')[0], cat: 'عام', desc: '', notes: '', amount: '', type: 'exp' });
             const [searchTerm, setSearchTerm] = useState('');
             const [filterCat, setFilterCat] = useState('الكل');
             const [editingId, setEditingId] = useState(null);
@@ -440,7 +437,6 @@
             const notify = (text) => { setMsg(text); setTimeout(() => setMsg(null), 3000); };
             const categories = ['عام','راتب / دخل','طعام','مواصلات','فواتير','تسوق','ترفيه','صحة','تعليم','أخرى', 'مُرحّل (متبقي)'];
 
-            // تحديث عنوان الصفحة ليطابق اسم الملف (ليكون اسم الـ PDF صحيحاً عند الحفظ)
             useEffect(() => {
                 if (currentSheet?.name) document.title = currentSheet.name;
                 else document.title = "مدير المصروفات";
@@ -562,20 +558,22 @@
             const isFiltered = searchTerm !== '' || filterCat !== 'الكل';
             const isLocked = currentSheet?.isLocked;
 
-            // CRUD
+            // CRUD - تم التحديث ليدعم حقل واحد
             const addEntry = () => {
                 if(currentSheet?.isLocked) return;
                 if(!input.desc) { notify("أدخل البيان"); return; }
-                const incVal = Number(input.inc)||0; const expVal = Number(input.exp)||0;
-                if(incVal>0 && expVal>0) { notify("خطأ: وارد ومنصرف معاً"); return; }
-                if(incVal===0 && expVal===0) { notify("أدخل قيمة"); return; }
+                const val = Number(input.amount) || 0;
+                if(val === 0) { notify("أدخل قيمة"); return; }
+                
+                const incVal = input.type === 'inc' ? val : 0;
+                const expVal = input.type === 'exp' ? val : 0;
+
                 const newEntries = [...entries, { id: Date.now(), ...input, inc: incVal, exp: expVal }];
                 setEntries(newEntries);
-                setInput({...input, desc: '', notes: '', inc: '', exp: ''});
+                setInput({...input, desc: '', notes: '', amount: ''}); // إعادة تعيين الحقول
                 if(currentSheet.id !== 'temp') saveSheet(currentSheet.name, newEntries);
             };
 
-            // 3. دالة الاستجابة لزر Enter
             const handleKeyDown = (e) => {
                 if (e.key === 'Enter') addEntry();
             };
@@ -692,9 +690,22 @@
                                 <div className="md:col-span-2"><label className="text-[10px] text-gray-400 font-bold">التصنيف</label><select disabled={currentSheet?.isLocked} className="w-full p-3 bg-gray-50 border rounded-xl" value={input.cat} onChange={e => setInput({...input, cat: e.target.value})} onKeyDown={handleKeyDown}>{categories.map(c=><option key={c} value={c}>{c}</option>)}</select></div>
                                 <div className="md:col-span-3"><label className="text-[10px] text-gray-400 font-bold">البيان</label><input type="text" disabled={currentSheet?.isLocked} placeholder="وصف..." className="w-full p-3 bg-gray-50 border rounded-xl" value={input.desc} onChange={e => setInput({...input, desc: e.target.value})} onKeyDown={handleKeyDown} /></div>
                                 <div className="md:col-span-2"><label className="text-[10px] text-gray-400 font-bold">ملاحظات</label><input type="text" disabled={currentSheet?.isLocked} placeholder="..." className="w-full p-3 bg-gray-50 border rounded-xl" value={input.notes} onChange={e => setInput({...input, notes: e.target.value})} onKeyDown={handleKeyDown} /></div>
-                                <div className="md:col-span-1"><label className="text-[10px] text-emerald-500 font-bold">وارد</label><input type="number" disabled={currentSheet?.isLocked} placeholder="0" className="w-full p-3 bg-emerald-50/50 border border-emerald-100 rounded-xl font-bold text-center" value={input.inc} onChange={e => setInput({...input, inc: e.target.value})} onKeyDown={handleKeyDown} /></div>
-                                <div className="md:col-span-1"><label className="text-[10px] text-rose-500 font-bold">منصرف</label><input type="number" disabled={currentSheet?.isLocked} placeholder="0" className="w-full p-3 bg-rose-50/50 border border-rose-100 rounded-xl font-bold text-center" value={input.exp} onChange={e => setInput({...input, exp: e.target.value})} onKeyDown={handleKeyDown} /></div>
-                                <div className="md:col-span-1"><button onClick={addEntry} disabled={currentSheet?.isLocked} className="w-full py-3.5 bg-indigo-600 text-white rounded-xl font-bold shadow-lg flex justify-center items-center"><Icons.Plus className="w-5 h-5"/></button></div>
+                                
+                                {/* حقل المبلغ الموحد مع خيار النوع */}
+                                <div className="md:col-span-2 flex gap-2 items-end">
+                                    <div className="flex-1">
+                                        <label className="text-[10px] text-gray-400 font-bold">المبلغ</label>
+                                        <input type="number" disabled={currentSheet?.isLocked} placeholder="0" className="w-full p-3 bg-gray-50 border rounded-xl font-bold text-center text-lg" value={input.amount} onChange={e => setInput({...input, amount: e.target.value})} onKeyDown={handleKeyDown} />
+                                    </div>
+                                    <div className="flex-1 flex flex-col justify-end">
+                                        <div className="flex bg-gray-100 p-1 rounded-xl">
+                                            <button onClick={() => setInput({...input, type: 'inc'})} className={`flex-1 py-2 rounded-lg text-sm font-bold transition-all ${input.type === 'inc' ? 'bg-emerald-500 text-white shadow' : 'text-gray-500 hover:bg-white'}`}>وارد</button>
+                                            <button onClick={() => setInput({...input, type: 'exp'})} className={`flex-1 py-2 rounded-lg text-sm font-bold transition-all ${input.type === 'exp' ? 'bg-rose-500 text-white shadow' : 'text-gray-500 hover:bg-white'}`}>منصرف</button>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div className="md:col-span-1"><button onClick={addEntry} disabled={currentSheet?.isLocked} className={`w-full py-3.5 text-white rounded-xl font-bold shadow-lg flex justify-center items-center transition-colors ${input.type === 'inc' ? 'bg-emerald-600 hover:bg-emerald-500' : 'bg-rose-600 hover:bg-rose-500'}`}><Icons.Plus className="w-5 h-5"/></button></div>
                             </div>
                         </div>
 
