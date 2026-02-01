@@ -574,6 +574,19 @@
                 if(currentSheet.id !== 'temp') saveSheet(currentSheet.name, newEntries);
             };
 
+            // ATM Style Amount Handler
+            const handleAmountChange = (e) => {
+                // استخراج الأرقام فقط
+                const raw = e.target.value.replace(/\D/g, '');
+                if (!raw) {
+                    setInput({ ...input, amount: '' });
+                    return;
+                }
+                // تحويل الأرقام إلى صيغة عملة (قسمة على 100)
+                const val = (Number(raw) / 100).toFixed(2);
+                setInput({ ...input, amount: val });
+            };
+
             const handleKeyDown = (e) => {
                 if (e.key === 'Enter') addEntry();
             };
@@ -695,7 +708,17 @@
                                 <div className="md:col-span-2 flex gap-2 items-end">
                                     <div className="flex-1">
                                         <label className="text-[10px] text-gray-400 font-bold">المبلغ</label>
-                                        <input type="number" disabled={currentSheet?.isLocked} placeholder="0" className="w-full p-3 bg-gray-50 border rounded-xl font-bold text-center text-lg" value={input.amount} onChange={e => setInput({...input, amount: e.target.value})} onKeyDown={handleKeyDown} />
+                                        <input 
+                                            type="text" 
+                                            inputMode="numeric" 
+                                            dir="ltr"
+                                            disabled={currentSheet?.isLocked} 
+                                            placeholder="0.00" 
+                                            className="w-full p-3 bg-gray-50 border rounded-xl font-bold text-center text-lg" 
+                                            value={input.amount} 
+                                            onChange={handleAmountChange} 
+                                            onKeyDown={handleKeyDown} 
+                                        />
                                     </div>
                                     <div className="flex-1 flex flex-col justify-end">
                                         <div className="flex bg-gray-100 p-1 rounded-xl">
